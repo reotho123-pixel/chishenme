@@ -1,0 +1,1003 @@
+{
+  "version": 1,
+  "note": "内置菜库，77 道粤闽家常菜，全部不辣。tools: wok 锅 / steamer 蒸笼 / airfryer 空气炸锅 / ricecooker 电饭煲。difficulty: 1 简单 / 2 中等。cost: 1 便宜 / 2 一般 / 3 稍贵。healthy: 1-5。",
+  "recipes": [
+    {
+      "id": "A1", "name": "葱花鸡蛋饼", "emoji": "🥞",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["快手", "家常", "一锅出"],
+      "ingredients": [
+        { "id": "flour", "amount": "100 克" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "scallion", "amount": "2 根" },
+        { "id": "salt", "amount": "适量" },
+        { "id": "oil", "amount": "适量" }
+      ],
+      "tip": "面糊调稀一点，摊出来更薄更软"
+    },
+    {
+      "id": "A2", "name": "苹果鸡蛋饼", "emoji": "🍎",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "清淡", "家常"],
+      "ingredients": [
+        { "id": "apple", "amount": "1 个" },
+        { "id": "flour", "amount": "100 克" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "oil", "amount": "适量" }
+      ],
+      "tip": "苹果切细丝，不用加糖也有甜味"
+    },
+    {
+      "id": "A3", "name": "福建拌面", "emoji": "🍜",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 12, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["快手", "家常"],
+      "ingredients": [
+        { "id": "noodle", "amount": "200 克" },
+        { "id": "peanut-butter", "amount": "2 汤匙" },
+        { "id": "light-soy", "amount": "1 汤匙" },
+        { "id": "scallion", "amount": "2 根" }
+      ],
+      "tip": "花生酱先用煮面水化开，不然拌不匀"
+    },
+    {
+      "id": "A4", "name": "客家腌面", "emoji": "🍜",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["家常"],
+      "ingredients": [
+        { "id": "noodle", "amount": "200 克" },
+        { "id": "lard", "amount": "1 汤匙" },
+        { "id": "garlic", "amount": "4 瓣" },
+        { "id": "scallion", "amount": "2 根" },
+        { "id": "light-soy", "amount": "1 汤匙" }
+      ],
+      "tip": "猪油和蒜末是灵魂，别省"
+    },
+    {
+      "id": "A5", "name": "潮汕牛肉丸粿条", "emoji": "🍲",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 20, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "汤水"],
+      "ingredients": [
+        { "id": "kway-teow", "amount": "200 克" },
+        { "id": "beef-ball", "amount": "8 个" },
+        { "id": "green-veggie", "amount": "1 把" },
+        { "id": "garlic", "amount": "3 瓣" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "丸子浮起来就熟了，别煮久"
+    },
+    {
+      "id": "A6", "name": "福州线面", "emoji": "🍜",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["快手", "汤水"],
+      "ingredients": [
+        { "id": "thin-noodle", "amount": "2 把" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "green-veggie", "amount": "1 把" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "线面本身有咸味，汤里少放盐"
+    },
+    {
+      "id": "A7", "name": "萝卜丝煎饼", "emoji": "🥞",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["家常", "清淡"],
+      "ingredients": [
+        { "id": "white-radish", "amount": "半个" },
+        { "id": "flour", "amount": "100 克" },
+        { "id": "egg", "amount": "1 个" },
+        { "id": "scallion", "amount": "2 根" },
+        { "id": "oil", "amount": "适量" }
+      ],
+      "tip": "萝卜丝先加点盐挤掉水，饼才不散"
+    },
+    {
+      "id": "A8", "name": "港式西多士", "emoji": "🍞",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 12, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 2,
+      "tools": ["wok"], "tags": ["快手", "解馋"],
+      "ingredients": [
+        { "id": "bread", "amount": "4 片" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "condensed-milk", "amount": "2 汤匙" },
+        { "id": "butter", "amount": "1 小块" }
+      ],
+      "tip": "小火慢煎，蛋液才不焦"
+    },
+    {
+      "id": "A9", "name": "锅贴煎饺", "emoji": "🥟",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["快手", "家常"],
+      "ingredients": [
+        { "id": "dumpling", "amount": "12 个" },
+        { "id": "oil", "amount": "适量" },
+        { "id": "vinegar", "amount": "1 碟" }
+      ],
+      "tip": "下锅后加半碗水盖盖子，底部才脆"
+    },
+    {
+      "id": "A10", "name": "韭菜盒子", "emoji": "🥟",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 30, "cost": 1, "difficulty": 2, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["家常"],
+      "ingredients": [
+        { "id": "chives", "amount": "200 克" },
+        { "id": "flour", "amount": "200 克" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "oil", "amount": "适量" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "馅里加一点油拌，韭菜不出水"
+    },
+    {
+      "id": "A11", "name": "烤红薯", "emoji": "🍠",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "breakfast",
+      "minutes": 40, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["airfryer"], "tags": ["零操作", "清淡"],
+      "ingredients": [
+        { "id": "sweet-potato", "amount": "2 个" }
+      ],
+      "tip": "200 度 40 分钟，中途翻个面更均匀"
+    },
+
+    {
+      "id": "B1", "name": "豉油鸡", "emoji": "🍗",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 40, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["一锅出", "家常", "下饭"],
+      "ingredients": [
+        { "id": "chicken-leg", "amount": "4 只" },
+        { "id": "light-soy", "amount": "半碗" },
+        { "id": "rock-sugar", "amount": "1 小块" },
+        { "id": "ginger", "amount": "4 片" },
+        { "id": "scallion", "amount": "2 根" }
+      ],
+      "tip": "小火焖，中途翻面让颜色均匀"
+    },
+    {
+      "id": "B2", "name": "可乐鸡翅", "emoji": "🍗",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 30, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["下饭", "家常", "解馋"],
+      "ingredients": [
+        { "id": "chicken-wing", "amount": "10 只" },
+        { "id": "cola", "amount": "1 罐" },
+        { "id": "light-soy", "amount": "2 汤匙" },
+        { "id": "ginger", "amount": "3 片" }
+      ],
+      "tip": "收汁到浓稠就好，别烧干"
+    },
+    {
+      "id": "B3", "name": "番茄焖鸡翅", "emoji": "🍗",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 30, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "chicken-wing", "amount": "10 只" },
+        { "id": "tomato", "amount": "2 个" },
+        { "id": "ginger", "amount": "3 片" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "番茄先炒出汁再下鸡翅"
+    },
+    {
+      "id": "B4", "name": "香煎鸡扒", "emoji": "🍗",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "chicken-breast", "amount": "2 块" },
+        { "id": "light-soy", "amount": "1 汤匙" },
+        { "id": "garlic", "amount": "3 瓣" },
+        { "id": "pepper", "amount": "适量" }
+      ],
+      "tip": "鸡胸拍松再煎，不容易柴"
+    },
+    {
+      "id": "B5", "name": "沙姜手撕鸡", "emoji": "🍗",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 30, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["清淡", "家常"],
+      "ingredients": [
+        { "id": "chicken-breast", "amount": "2 块" },
+        { "id": "sand-ginger", "amount": "1 小块" },
+        { "id": "scallion", "amount": "2 根" },
+        { "id": "salt", "amount": "适量" },
+        { "id": "sesame-oil", "amount": "1 汤匙" }
+      ],
+      "tip": "蒸好放凉再撕，肉更紧实"
+    },
+    {
+      "id": "B6", "name": "香菇蒸鸡", "emoji": "🍗",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 30, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["下饭", "家常", "一锅出"],
+      "ingredients": [
+        { "id": "chicken", "amount": "半只" },
+        { "id": "shiitake", "amount": "6 朵" },
+        { "id": "ginger", "amount": "4 片" },
+        { "id": "light-soy", "amount": "1 汤匙" },
+        { "id": "starch", "amount": "1 茶匙" }
+      ],
+      "tip": "加一勺淀粉抓匀，肉更滑"
+    },
+    {
+      "id": "B7", "name": "苹果炒鸡柳", "emoji": "🍎",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["清淡", "家常"],
+      "ingredients": [
+        { "id": "apple", "amount": "1 个" },
+        { "id": "chicken-breast", "amount": "2 块" },
+        { "id": "scallion", "amount": "2 根" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "苹果最后放，炒久了会软塌"
+    },
+    {
+      "id": "B8", "name": "清蒸鲈鱼", "emoji": "🐟",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["steamer"], "tags": ["清淡", "少油", "宴客"],
+      "ingredients": [
+        { "id": "sea-bass", "amount": "1 条" },
+        { "id": "ginger", "amount": "5 片" },
+        { "id": "scallion", "amount": "3 根" },
+        { "id": "steamed-fish-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "蒸 8 分钟就够，多一分钟肉就老"
+    },
+    {
+      "id": "B9", "name": "香煎黄花鱼", "emoji": "🐟",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["家常", "下饭"],
+      "ingredients": [
+        { "id": "yellow-croaker", "amount": "4 条" },
+        { "id": "ginger", "amount": "4 片" },
+        { "id": "salt", "amount": "适量" },
+        { "id": "oil", "amount": "适量" }
+      ],
+      "tip": "鱼身擦干再下锅，皮才不破"
+    },
+    {
+      "id": "B10", "name": "香煎龙利鱼柳", "emoji": "🐟",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "sole-fish", "amount": "2 片" },
+        { "id": "ginger", "amount": "3 片" },
+        { "id": "scallion", "amount": "2 根" },
+        { "id": "pepper", "amount": "适量" }
+      ],
+      "tip": "无刺，最省事的一种鱼"
+    },
+    {
+      "id": "B11", "name": "豉汁蒸鱼头", "emoji": "🐟",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 25, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "fish-head", "amount": "1 个" },
+        { "id": "douchi", "amount": "1 汤匙" },
+        { "id": "ginger", "amount": "4 片" },
+        { "id": "garlic", "amount": "4 瓣" }
+      ],
+      "tip": "豆豉剁碎再铺，更入味"
+    },
+    {
+      "id": "B12", "name": "白灼虾", "emoji": "🦐",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 3, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "shrimp", "amount": "500 克" },
+        { "id": "ginger", "amount": "4 片" },
+        { "id": "scallion", "amount": "2 根" },
+        { "id": "light-soy", "amount": "1 碟" }
+      ],
+      "tip": "水开下锅，虾变红就捞，别煮过"
+    },
+    {
+      "id": "B13", "name": "蒜蓉粉丝蒸虾", "emoji": "🦐",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 25, "cost": 3, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["steamer"], "tags": ["宴客", "清淡"],
+      "ingredients": [
+        { "id": "shrimp", "amount": "500 克" },
+        { "id": "vermicelli", "amount": "1 把" },
+        { "id": "garlic", "amount": "1 整头" },
+        { "id": "light-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "粉丝垫底吸汁，比虾还好吃"
+    },
+    {
+      "id": "B14", "name": "姜葱炒花蛤", "emoji": "🐚",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "clam", "amount": "500 克" },
+        { "id": "ginger", "amount": "5 片" },
+        { "id": "scallion", "amount": "3 根" },
+        { "id": "cooking-wine", "amount": "1 汤匙" }
+      ],
+      "tip": "花蛤提前泡水吐沙，开口就熟"
+    },
+    {
+      "id": "B15", "name": "芥兰炒牛肉", "emoji": "🥩",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "beef", "amount": "250 克" },
+        { "id": "kailan", "amount": "1 把" },
+        { "id": "ginger", "amount": "3 片" },
+        { "id": "starch", "amount": "1 茶匙" },
+        { "id": "light-soy", "amount": "1 汤匙" }
+      ],
+      "tip": "牛肉先加淀粉抓匀，炒出来才嫩"
+    },
+    {
+      "id": "B16", "name": "豉汁蒸排骨", "emoji": "🍖",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 30, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "pork-ribs", "amount": "500 克" },
+        { "id": "douchi", "amount": "1 汤匙" },
+        { "id": "garlic", "amount": "5 瓣" },
+        { "id": "starch", "amount": "1 茶匙" },
+        { "id": "light-soy", "amount": "1 汤匙" }
+      ],
+      "tip": "排骨选小排，蒸 20 分钟就软"
+    },
+    {
+      "id": "B17", "name": "薯仔焖排骨", "emoji": "🍖",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 40, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["下饭", "家常", "一锅出"],
+      "ingredients": [
+        { "id": "pork-ribs", "amount": "500 克" },
+        { "id": "potato", "amount": "2 个" },
+        { "id": "light-soy", "amount": "2 汤匙" },
+        { "id": "ginger", "amount": "3 片" }
+      ],
+      "tip": "土豆晚点下，不然会焖烂"
+    },
+    {
+      "id": "B18", "name": "咸蛋蒸肉饼", "emoji": "🍖",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 25, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "pork-mince", "amount": "300 克" },
+        { "id": "salted-duck-egg", "amount": "2 个" },
+        { "id": "starch", "amount": "1 茶匙" },
+        { "id": "light-soy", "amount": "1 茶匙" }
+      ],
+      "tip": "肉饼摊薄一点，蒸 12 分钟就熟"
+    },
+    {
+      "id": "B19", "name": "香煎猪扒", "emoji": "🥩",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["家常", "快手"],
+      "ingredients": [
+        { "id": "pork-loin", "amount": "2 块" },
+        { "id": "light-soy", "amount": "1 汤匙" },
+        { "id": "garlic", "amount": "3 瓣" },
+        { "id": "starch", "amount": "1 茶匙" }
+      ],
+      "tip": "用刀背拍松，煎出来不硬"
+    },
+    {
+      "id": "B20", "name": "空气炸锅叉烧", "emoji": "🥩",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 40, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["airfryer"], "tags": ["下饭", "解馋"],
+      "ingredients": [
+        { "id": "pork-belly", "amount": "500 克" },
+        { "id": "char-siu-sauce", "amount": "3 汤匙" },
+        { "id": "honey", "amount": "1 汤匙" },
+        { "id": "light-soy", "amount": "1 汤匙" }
+      ],
+      "tip": "200 度 25 分钟，中间刷两次蜜"
+    },
+    {
+      "id": "B21", "name": "萝卜牛腩煲", "emoji": "🍲",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 90, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["下饭", "家常", "一锅出"],
+      "ingredients": [
+        { "id": "beef-brisket", "amount": "600 克" },
+        { "id": "white-radish", "amount": "1 个" },
+        { "id": "chu-hou-sauce", "amount": "2 汤匙" },
+        { "id": "ginger", "amount": "5 片" }
+      ],
+      "tip": "炖上就不用管，越久越软"
+    },
+    {
+      "id": "B22", "name": "玉米炒虾仁", "emoji": "🦐",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "清淡"],
+      "ingredients": [
+        { "id": "shrimp-meat", "amount": "200 克" },
+        { "id": "corn", "amount": "1 碗" },
+        { "id": "carrot", "amount": "半根" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "虾仁最后下，炒久了变硬"
+    },
+    {
+      "id": "B23", "name": "客家酿豆腐", "emoji": "🍲",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 35, "cost": 1, "difficulty": 2, "spicy": 0, "healthy": 4,
+      "tools": ["wok", "steamer"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "tofu", "amount": "4 块" },
+        { "id": "pork-mince", "amount": "200 克" },
+        { "id": "shiitake", "amount": "4 朵" },
+        { "id": "starch", "amount": "1 茶匙" },
+        { "id": "light-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "豆腐先煎一下再焖，不容易散"
+    },
+
+    {
+      "id": "C1", "name": "番茄炒蛋", "emoji": "🍅",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "家常", "下饭"],
+      "ingredients": [
+        { "id": "tomato", "amount": "2 个" },
+        { "id": "egg", "amount": "3 个" },
+        { "id": "scallion", "amount": "1 根" },
+        { "id": "salt", "amount": "适量" },
+        { "id": "sugar", "amount": "1 茶匙" }
+      ],
+      "tip": "番茄先去皮更入味，一点糖提鲜"
+    },
+    {
+      "id": "C2", "name": "蒸水蛋", "emoji": "🥚",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "egg", "amount": "3 个" },
+        { "id": "light-soy", "amount": "1 茶匙" },
+        { "id": "sesame-oil", "amount": "几滴" }
+      ],
+      "tip": "蛋液和温水 1:1.5，盖个盘子蒸更滑"
+    },
+    {
+      "id": "C3", "name": "肉末蒸蛋", "emoji": "🥚",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "egg", "amount": "3 个" },
+        { "id": "pork-mince", "amount": "100 克" },
+        { "id": "light-soy", "amount": "1 茶匙" }
+      ],
+      "tip": "肉末先炒香再铺在蒸蛋上"
+    },
+    {
+      "id": "C4", "name": "豆腐蒸蛋", "emoji": "🥚",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["清淡", "少油"],
+      "ingredients": [
+        { "id": "tofu", "amount": "1 块" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "light-soy", "amount": "1 茶匙" }
+      ],
+      "tip": "豆腐切小块垫底，蛋液倒上去"
+    },
+    {
+      "id": "C5", "name": "韭黄炒蛋", "emoji": "🥚",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 12, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "家常"],
+      "ingredients": [
+        { "id": "egg", "amount": "3 个" },
+        { "id": "garlic-chive", "amount": "200 克" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "韭黄下锅翻两下就够，久了出水"
+    },
+    {
+      "id": "C6", "name": "蒜蓉炒菜心", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 10, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "choy-sum", "amount": "1 把" },
+        { "id": "garlic", "amount": "4 瓣" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "大火快炒，菜心才脆"
+    },
+    {
+      "id": "C7", "name": "白灼芥兰", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 12, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["清淡", "少油"],
+      "ingredients": [
+        { "id": "kailan", "amount": "1 把" },
+        { "id": "ginger", "amount": "3 片" },
+        { "id": "oyster-sauce", "amount": "1 汤匙" }
+      ],
+      "tip": "焯完过一下冷水，颜色更绿"
+    },
+    {
+      "id": "C8", "name": "蚝油生菜", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 8, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "lettuce", "amount": "1 棵" },
+        { "id": "oyster-sauce", "amount": "1 汤匙" },
+        { "id": "garlic", "amount": "3 瓣" }
+      ],
+      "tip": "8 分钟上桌，最省事的一道菜"
+    },
+    {
+      "id": "C9", "name": "蒜蓉西兰花", "emoji": "🥦",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 12, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "broccoli", "amount": "1 棵" },
+        { "id": "garlic", "amount": "4 瓣" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "先焯 1 分钟再炒，熟得更匀"
+    },
+    {
+      "id": "C10", "name": "蒜蓉炒娃娃菜", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 10, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["快手", "清淡"],
+      "ingredients": [
+        { "id": "wawacai", "amount": "2 棵" },
+        { "id": "garlic", "amount": "4 瓣" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "菜帮和菜叶分开下锅"
+    },
+    {
+      "id": "C11", "name": "蒜蓉粉丝蒸娃娃菜", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["清淡", "少油", "零操作"],
+      "ingredients": [
+        { "id": "wawacai", "amount": "2 棵" },
+        { "id": "vermicelli", "amount": "1 把" },
+        { "id": "garlic", "amount": "1 整头" },
+        { "id": "light-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "上锅不用看着，蒸着就能去做别的"
+    },
+    {
+      "id": "C12", "name": "上汤娃娃菜", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["清淡", "汤水"],
+      "ingredients": [
+        { "id": "wawacai", "amount": "2 棵" },
+        { "id": "century-egg", "amount": "1 个" },
+        { "id": "goji", "amount": "1 小把" },
+        { "id": "garlic", "amount": "4 瓣" }
+      ],
+      "tip": "皮蛋先炒一下，汤更香"
+    },
+    {
+      "id": "C13", "name": "豆豉鲮鱼油麦菜", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 10, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "下饭"],
+      "ingredients": [
+        { "id": "oil-lettuce", "amount": "1 把" },
+        { "id": "dace-canned", "amount": "半罐" },
+        { "id": "garlic", "amount": "3 瓣" }
+      ],
+      "tip": "罐头本身够咸，不用另外加盐"
+    },
+    {
+      "id": "C14", "name": "腐乳通菜", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 10, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "家常", "下饭"],
+      "ingredients": [
+        { "id": "water-spinach", "amount": "1 把" },
+        { "id": "fermented-tofu", "amount": "2 块" },
+        { "id": "garlic", "amount": "4 瓣" }
+      ],
+      "tip": "腐乳先用一点水化开再下锅"
+    },
+    {
+      "id": "C15", "name": "家常豆腐", "emoji": "🍲",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["下饭", "家常"],
+      "ingredients": [
+        { "id": "tofu", "amount": "4 块" },
+        { "id": "wood-ear", "amount": "1 小把" },
+        { "id": "green-pepper", "amount": "1 个" },
+        { "id": "light-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "不辣版，青椒选不辣的那种"
+    },
+    {
+      "id": "C16", "name": "香煎豆腐", "emoji": "🍲",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "tofu", "amount": "4 块" },
+        { "id": "light-soy", "amount": "1 汤匙" },
+        { "id": "scallion", "amount": "2 根" }
+      ],
+      "tip": "豆腐擦干水分再煎，不容易溅油"
+    },
+    {
+      "id": "C17", "name": "蚝油杏鲍菇", "emoji": "🍄",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "下饭"],
+      "ingredients": [
+        { "id": "king-oyster-mushroom", "amount": "3 根" },
+        { "id": "oyster-sauce", "amount": "1 汤匙" },
+        { "id": "garlic", "amount": "3 瓣" }
+      ],
+      "tip": "切厚片煎到两面金黄，口感像肉"
+    },
+    {
+      "id": "C18", "name": "蒜蓉蒸金针菇", "emoji": "🍄",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["清淡", "零操作"],
+      "ingredients": [
+        { "id": "enoki", "amount": "1 把" },
+        { "id": "garlic", "amount": "6 瓣" },
+        { "id": "vermicelli", "amount": "半把" },
+        { "id": "light-soy", "amount": "1 汤匙" }
+      ],
+      "tip": "蒸 8 分钟就够，久了会塌"
+    },
+    {
+      "id": "C19", "name": "蒜蓉蒸丝瓜", "emoji": "🥒",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["steamer"], "tags": ["清淡", "少油", "零操作"],
+      "ingredients": [
+        { "id": "loofah", "amount": "2 根" },
+        { "id": "garlic", "amount": "6 瓣" },
+        { "id": "vermicelli", "amount": "半把" }
+      ],
+      "tip": "夏天吃最清爽，蒸出来有汤"
+    },
+    {
+      "id": "C20", "name": "香菇扒油菜", "emoji": "🍄",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["家常", "清淡"],
+      "ingredients": [
+        { "id": "bok-choy", "amount": "1 把" },
+        { "id": "shiitake", "amount": "6 朵" },
+        { "id": "oyster-sauce", "amount": "1 汤匙" }
+      ],
+      "tip": "油菜焯好摆盘，香菇勾个薄芡淋上去"
+    },
+    {
+      "id": "C21", "name": "玉米粒炒蛋", "emoji": "🌽",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "main",
+      "minutes": 10, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "清淡"],
+      "ingredients": [
+        { "id": "corn", "amount": "1 碗" },
+        { "id": "egg", "amount": "3 个" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "玉米先炒香再倒蛋液"
+    },
+    {
+      "id": "C22", "name": "金沙玉米", "emoji": "🌽",
+      "meals": ["lunch", "dinner"], "role": "main",
+      "minutes": 20, "cost": 1, "difficulty": 2, "spicy": 0, "healthy": 2,
+      "tools": ["airfryer"], "tags": ["解馋"],
+      "ingredients": [
+        { "id": "corn", "amount": "1 碗" },
+        { "id": "salted-duck-egg", "amount": "2 个" },
+        { "id": "starch", "amount": "2 汤匙" },
+        { "id": "butter", "amount": "1 小块" }
+      ],
+      "tip": "咸蛋黄压碎炒到起泡再裹玉米"
+    },
+
+    {
+      "id": "D1", "name": "拍黄瓜", "emoji": "🥒",
+      "meals": ["lunch", "dinner"], "role": "side",
+      "minutes": 8, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 5,
+      "tools": ["wok"], "tags": ["快手", "清淡", "少油"],
+      "ingredients": [
+        { "id": "cucumber", "amount": "2 根" },
+        { "id": "garlic", "amount": "4 瓣" },
+        { "id": "vinegar", "amount": "1 汤匙" },
+        { "id": "sesame-oil", "amount": "几滴" }
+      ],
+      "tip": "拍碎比切片入味，不辣版就用蒜和醋"
+    },
+    {
+      "id": "D2", "name": "卤蛋", "emoji": "🥚",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "side",
+      "minutes": 30, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["家常", "一锅出"],
+      "ingredients": [
+        { "id": "egg", "amount": "6 个" },
+        { "id": "light-soy", "amount": "半碗" },
+        { "id": "star-anise", "amount": "2 颗" },
+        { "id": "rock-sugar", "amount": "1 小块" }
+      ],
+      "tip": "一次卤几个，配粥配面都行"
+    },
+    {
+      "id": "D3", "name": "盐水花生", "emoji": "🥜",
+      "meals": ["lunch", "dinner"], "role": "side",
+      "minutes": 30, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["家常"],
+      "ingredients": [
+        { "id": "peanut", "amount": "300 克" },
+        { "id": "star-anise", "amount": "2 颗" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "煮好泡一会儿更入味"
+    },
+    {
+      "id": "D4", "name": "蒜蓉蒸茄子", "emoji": "🍆",
+      "meals": ["lunch", "dinner"], "role": "side",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["steamer"], "tags": ["少油", "清淡"],
+      "ingredients": [
+        { "id": "eggplant", "amount": "2 根" },
+        { "id": "garlic", "amount": "1 整头" },
+        { "id": "light-soy", "amount": "1 汤匙" }
+      ],
+      "tip": "蒸比炒省油得多，茄子不吃油"
+    },
+    {
+      "id": "D5", "name": "咸蛋黄焗南瓜", "emoji": "🎃",
+      "meals": ["lunch", "dinner"], "role": "side",
+      "minutes": 25, "cost": 1, "difficulty": 2, "spicy": 0, "healthy": 2,
+      "tools": ["airfryer"], "tags": ["解馋"],
+      "ingredients": [
+        { "id": "pumpkin", "amount": "400 克" },
+        { "id": "salted-duck-egg", "amount": "2 个" },
+        { "id": "starch", "amount": "2 汤匙" }
+      ],
+      "tip": "南瓜切条，裹一层薄淀粉再炸"
+    },
+    {
+      "id": "D6", "name": "牛肉丸炒青菜", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "side",
+      "minutes": 15, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "家常"],
+      "ingredients": [
+        { "id": "beef-ball", "amount": "8 个" },
+        { "id": "green-veggie", "amount": "1 把" },
+        { "id": "garlic", "amount": "3 瓣" }
+      ],
+      "tip": "丸子切片再炒，更入味"
+    },
+    {
+      "id": "D7", "name": "广式腌萝卜", "emoji": "🥬",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "side",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["爽口", "少油"],
+      "ingredients": [
+        { "id": "white-radish", "amount": "1 个" },
+        { "id": "white-vinegar", "amount": "半碗" },
+        { "id": "sugar", "amount": "3 汤匙" }
+      ],
+      "tip": "提前腌一晚，第二天就能吃"
+    },
+    {
+      "id": "D8", "name": "香煎土豆饼", "emoji": "🥔",
+      "meals": ["lunch", "dinner"], "role": "side",
+      "minutes": 25, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["airfryer"], "tags": ["家常", "解馋"],
+      "ingredients": [
+        { "id": "potato", "amount": "2 个" },
+        { "id": "flour", "amount": "3 汤匙" },
+        { "id": "scallion", "amount": "2 根" },
+        { "id": "salt", "amount": "适量" }
+      ],
+      "tip": "土豆擦丝后挤干水，饼才脆"
+    },
+    {
+      "id": "D9", "name": "手撕包菜", "emoji": "🥬",
+      "meals": ["lunch", "dinner"], "role": "side",
+      "minutes": 12, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["wok"], "tags": ["快手", "下饭"],
+      "ingredients": [
+        { "id": "cabbage", "amount": "半棵" },
+        { "id": "garlic", "amount": "4 瓣" },
+        { "id": "light-soy", "amount": "1 汤匙" },
+        { "id": "vinegar", "amount": "1 茶匙" }
+      ],
+      "tip": "手撕比刀切更入味，大火猛炒"
+    },
+    {
+      "id": "D10", "name": "皮蛋豆腐", "emoji": "🥚",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "side",
+      "minutes": 5, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": [], "tags": ["零操作", "快手", "少油"],
+      "ingredients": [
+        { "id": "century-egg", "amount": "2 个" },
+        { "id": "tofu", "amount": "1 块" },
+        { "id": "light-soy", "amount": "1 汤匙" },
+        { "id": "scallion", "amount": "1 根" },
+        { "id": "sesame-oil", "amount": "几滴" }
+      ],
+      "tip": "免开火，切一切淋上生抽就行"
+    },
+
+    {
+      "id": "F1", "name": "广式炒面", "emoji": "🍜",
+      "meals": ["lunch", "dinner"], "role": "staple",
+      "minutes": 20, "cost": 1, "difficulty": 2, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["家常", "一锅出"],
+      "ingredients": [
+        { "id": "noodle", "amount": "200 克" },
+        { "id": "pork-shred", "amount": "100 克" },
+        { "id": "bean-sprout", "amount": "1 把" },
+        { "id": "garlic-chive", "amount": "1 小把" },
+        { "id": "light-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "面先煮散过冷水，炒起来才不粘"
+    },
+    {
+      "id": "F2", "name": "福建炒米粉", "emoji": "🍜",
+      "meals": ["lunch", "dinner"], "role": "staple",
+      "minutes": 25, "cost": 1, "difficulty": 2, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["家常", "一锅出"],
+      "ingredients": [
+        { "id": "rice-noodle", "amount": "200 克" },
+        { "id": "pork-shred", "amount": "100 克" },
+        { "id": "cabbage", "amount": "1/4 棵" },
+        { "id": "shiitake", "amount": "4 朵" },
+        { "id": "light-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "米粉用温水泡软就捞，泡久了会烂"
+    },
+    {
+      "id": "F3", "name": "闽南咸饭", "emoji": "🍚",
+      "meals": ["lunch", "dinner"], "role": "staple",
+      "minutes": 40, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["ricecooker"], "tags": ["一锅出", "家常", "零操作"],
+      "ingredients": [
+        { "id": "rice", "amount": "2 杯" },
+        { "id": "pork", "amount": "150 克" },
+        { "id": "shiitake", "amount": "5 朵" },
+        { "id": "white-radish", "amount": "半个" },
+        { "id": "light-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "料先炒香再和米一起进锅，一锅就是一顿"
+    },
+    {
+      "id": "F4", "name": "闽南卤面", "emoji": "🍜",
+      "meals": ["lunch", "dinner"], "role": "staple",
+      "minutes": 30, "cost": 2, "difficulty": 2, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["家常", "汤水"],
+      "ingredients": [
+        { "id": "noodle", "amount": "200 克" },
+        { "id": "shrimp-meat", "amount": "150 克" },
+        { "id": "pork-shred", "amount": "100 克" },
+        { "id": "shiitake", "amount": "4 朵" },
+        { "id": "cabbage", "amount": "1/4 棵" },
+        { "id": "starch", "amount": "2 汤匙" }
+      ],
+      "tip": "最后勾芡，汤才挂得住面"
+    },
+    {
+      "id": "F5", "name": "虾仁蛋炒饭", "emoji": "🍚",
+      "meals": ["lunch", "dinner"], "role": "staple",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["ricecooker", "wok"], "tags": ["快手", "家常", "一锅出"],
+      "ingredients": [
+        { "id": "cooked-rice", "amount": "2 碗" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "shrimp-meat", "amount": "150 克" },
+        { "id": "scallion", "amount": "2 根" }
+      ],
+      "tip": "用隔夜饭，粒粒分明"
+    },
+    {
+      "id": "F6", "name": "番茄鸡蛋面", "emoji": "🍜",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "staple",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["快手", "汤水", "家常"],
+      "ingredients": [
+        { "id": "noodle", "amount": "200 克" },
+        { "id": "tomato", "amount": "2 个" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "scallion", "amount": "1 根" }
+      ],
+      "tip": "番茄炒出汁再加水，汤才浓"
+    },
+    {
+      "id": "F7", "name": "葱油拌面", "emoji": "🍜",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "staple",
+      "minutes": 15, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["快手", "家常"],
+      "ingredients": [
+        { "id": "noodle", "amount": "200 克" },
+        { "id": "scallion", "amount": "6 根" },
+        { "id": "light-soy", "amount": "2 汤匙" },
+        { "id": "sugar", "amount": "1 茶匙" }
+      ],
+      "tip": "葱要小火熬到焦黄，香味才出来"
+    },
+    {
+      "id": "F8", "name": "香菇滑鸡饭", "emoji": "🍚",
+      "meals": ["lunch", "dinner"], "role": "staple",
+      "minutes": 30, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 4,
+      "tools": ["ricecooker"], "tags": ["一锅出", "零操作", "下饭"],
+      "ingredients": [
+        { "id": "rice", "amount": "2 杯" },
+        { "id": "chicken", "amount": "半只" },
+        { "id": "shiitake", "amount": "5 朵" },
+        { "id": "ginger", "amount": "4 片" },
+        { "id": "light-soy", "amount": "2 汤匙" }
+      ],
+      "tip": "鸡块用生抽和淀粉抓匀再铺到米上"
+    },
+    {
+      "id": "F9", "name": "腊肠焖饭", "emoji": "🍚",
+      "meals": ["lunch", "dinner"], "role": "staple",
+      "minutes": 40, "cost": 2, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["ricecooker"], "tags": ["一锅出", "零操作"],
+      "ingredients": [
+        { "id": "rice", "amount": "2 杯" },
+        { "id": "lap-cheong", "amount": "2 根" },
+        { "id": "green-veggie", "amount": "1 把" }
+      ],
+      "tip": "腊肠切片铺在米上，饭熟香也出来了"
+    },
+    {
+      "id": "F10", "name": "菠萝炒饭", "emoji": "🍍",
+      "meals": ["lunch", "dinner"], "role": "staple",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["ricecooker", "wok"], "tags": ["解馋", "家常"],
+      "ingredients": [
+        { "id": "cooked-rice", "amount": "2 碗" },
+        { "id": "pineapple", "amount": "半个" },
+        { "id": "egg", "amount": "2 个" },
+        { "id": "shrimp-meat", "amount": "100 克" }
+      ],
+      "tip": "菠萝先炒一下去掉多余水分"
+    },
+    {
+      "id": "F11", "name": "榨菜肉丝面", "emoji": "🍜",
+      "meals": ["breakfast", "lunch", "dinner"], "role": "staple",
+      "minutes": 20, "cost": 1, "difficulty": 1, "spicy": 0, "healthy": 3,
+      "tools": ["wok"], "tags": ["快手", "汤水", "家常"],
+      "ingredients": [
+        { "id": "noodle", "amount": "200 克" },
+        { "id": "pork-shred", "amount": "100 克" },
+        { "id": "pickled-mustard", "amount": "1 小包" }
+      ],
+      "tip": "榨菜本身咸，汤里少放盐"
+    }
+  ]
+}

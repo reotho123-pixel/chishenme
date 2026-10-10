@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>core.js 算法自测</title>
+<style>
+body{font-family:ui-monospace,Consolas,monospace;background:#14161a;color:#d6dae0;padding:22px;font-size:13px;line-height:1.7}
+h1{font-size:16px;color:#fff;margin-bottom:14px}
+.sec{color:#F7C8D4;font-weight:700;margin:16px 0 6px;font-size:13.5px}
+.p{color:#5fd08a}
+.f{color:#ff7b72;font-weight:700}
+.sum{margin-top:20px;padding:14px;border-radius:10px;background:#1e2229;font-size:15px;font-weight:700}
+.sum.ok{color:#5fd08a;border:2px solid #2c5c40}
+.sum.bad{color:#ff7b72;border:2px solid #6b2b2b}
+#out{white-space:pre-wrap}
+</style>
+</head>
+<body>
+<h1>「待会吃什么」core.js 算法自测</h1>
+<div id="out">running…</div>
+<script src="core.js"></script>
+<script>
+(async function () {
+  const C = window.ChishenmeCore;
+  const out = document.getElementById('out');
+  let pass = 0, fail = 0, log = [];
+
+  function ok(name, cond, extra) {
+    if (cond) { pass++; log.push('  <span class="p">PASS</span>  ' + name); }
+    else { fail++; log.push('  <span class="f">FAIL</span>  ' + name + (extra ? '  → ' + extra : '')); }
+  }
+  function section(t) { log.push('<div class="sec">=== ' + t + ' ===</div>'); }
+  function flush() { out.innerHTML = log.join('\n'); }
+
+  let ingDoc, recDoc;
+  try {
+    const [a, b] = await Promise.all([
+      fetch('data/ingredients.json').then(r => r.json()),
+      fetch('data/recipes.json').then(r => r.json())
+    ]);
+    ingDoc = a; recDoc = b;
+  } catch (e) {
+    out.innerHTML = '<span class="f">数据加载失败：' + e.message + '</span>';
+    return;
+  }
+
+  const ingIndex = C.buildIngredientIndex(ingDoc.ingredients);
+  const builtin = recDoc.recipes;
+  const byId = {};
+  builtin.forEach(r => byId[r.id] = r);
+
+  /* 1. 日期工具 */
+  section('日期工具');
+  ok('dateStr 格式正确', /^\d{4}-\d{2}-\d{2}$/.test(C.dateStr(new Date(2026, 9, 9))));
+  ok('dateStr 深夜不跨到 UTC 次日', C.dateStr(new Date(2026, 9, 9, 23, 30)) === '2026-10-09', C.dateStr(new Date(2026, 9, 9, 23, 30)));
+  ok('dateStr 凌晨不错位', C.dateStr(new Date(2026, 9, 10, 0, 30)) === '2026-10-10');
+  ok('daysBetween 基本', C.daysBetween('2026-10-01', '2026-10-09') === 8);
+  ok('daysBetween 跨月', C.daysBetween('2026-09-28', '2026-10-02') === 4);
+  ok('addDays 跨月', C.addDays('2026-10-31', 1) === '2026-11-01');
+  ok('mealByHour 早', C.mealByHour(new Date(2026, 9, 9, 8)) === 'breakfast');
+  ok('mealByHour 午', C.mealByHour(new Date(2026, 9, 9, 13)) === 'lunch');
+  ok('mealByHour 晚', C.mealByHour(new Date(2026, 9, 9, 19)) === 'dinner');
+  ok('mealByHour 凌晨算晚', C.mealByHour(new Date(2026, 9, 9, 2)) === 'dinner');
+  flush();
+
+  /* 2. 忌口 */
+  section('忌口过滤（硬过滤）');
+  const st = C.defaultState();
+  st.members.a.allergies = ['oyster'];
+  st.members.a.dislikes = ['bitter-melon'];
+  st.members.a.maxSpicy = 0;
+  st.members.b.maxSpicy = 0;
+
+  const clamConf = C.recipeConflicts(byId['B14'], st, ingIndex);
+  ok('★ 忌生蚝不影响姜葱炒花蛤', clamConf.length === 0, JSON.stringify(clamConf));
+  ok('★ 忌生蚝不影响白灼虾', C.recipeConflicts(byId['B12'], st, ingIndex).length === 0);
+  const fakeBitter = { id: 'X', name: '苦瓜炒蛋', spicy: 0, ingredients: [{ id: 'bitter-melon', amount: '1 根' }, { id: 'egg', amount: '2 个' }] };
+  const bc = C.recipeConflicts(fakeBitter, st, ingIndex);
+  ok('苦瓜菜被过滤', bc.length === 1 && bc[0].type === 'dislike', JSON.stringify(bc));
+  ok('生蚝标记为 oyster', ingIndex.byId['oyster'].allergens.indexOf('oyster') !== -1);
+  ok('花蛤标记为 clam 而非 oyster', ingIndex.byId['clam'].allergens.indexOf('clam') !== -1 && ingIndex.byId['clam'].allergens.indexOf('oyster') === -1);
+  ok('虾标记为 crustacean', ingIndex.byId['shrimp'].allergens.indexOf('crustacean') !== -1);
+  ok('干贝标记为 scallop', ingIndex.byId['dried-scallop'].allergens.indexOf('scallop') !== -1);
+  flush();
+
+  /* 3. 食材匹配 */
+  section('食材匹配');
+  const c1 = byId['C1'];
+  let m = C.recipeMissing(c1, st, ingIndex);
+  // 番茄炒蛋需要：番茄、鸡蛋、葱（葱不是常备调料，要买）；盐/糖是常备
+  ok('空 pantry 时缺 3 样（番茄/鸡蛋/葱）', m.missing.length === 3 && !m.canCook, JSON.stringify(m.missing.map(x => x.id)));
+  ok('常备调料（盐/糖/油）不算缺', m.missing.every(x => ['oil','salt','sugar','garlic','ginger'].indexOf(x.id) === -1));
+  ok('葱不算常备（需购买）', m.missing.some(x => x.id === 'scallion'));
+  st.pantry.items = ['egg', 'tomato', 'scallion'];
+  m = C.recipeMissing(c1, st, ingIndex);
+  ok('有番茄鸡蛋葱后完全能做', m.canCook && m.missing.length === 0, JSON.stringify(m.missing));
+  m = C.recipeMissing(byId['B23'], st, ingIndex);
+  // 酿豆腐需要：豆腐、猪肉末、香菇（淀粉/生抽是常备）
+  ok('酿豆腐缺 3 样', m.missing.length === 3 && !m.canCook, JSON.stringify(m.missing.map(x => x.id)));
+  ok('酿豆腐的常备调料不算缺', m.missing.every(x => ['starch','light-soy'].indexOf(x.id) === -1));
+  flush();
+
+  /* 4. 候选池 */
+  section('候选池生成');
+  st.pantry.items = [];
+  const cond = C.defaultConditions();
+  const now = new Date(2026, 9, 9, 19);
+  const pool = C.buildPool(cond, builtin, st, ingIndex, { now, today: '2026-10-09' });
+  ok('默认条件下池子非空', pool.pool.length > 0, 'size=' + pool.pool.length);
+  ok('默认条件 ≥25 道可选', pool.afterDietCount >= 25, 'afterDiet=' + pool.afterDietCount);
+  ok('池内无辣菜', pool.pool.every(r => r.spicy === 0));
+  ok('池内无生蚝/海蛎', pool.pool.every(r => !r.ingredients.some(i => i.id === 'oyster' || i.id === 'small-oyster')));
+  ok('池内无苦瓜', pool.pool.every(r => !r.ingredients.some(i => i.id === 'bitter-melon')));
+  ok('池内无「难」级', pool.pool.every(r => r.difficulty <= 2));
+  ok('池内器具都在允许范围', pool.pool.every(r => (r.tools || []).every(t => ['wok','steamer','airfryer','ricecooker'].indexOf(t) !== -1)));
+  ok('默认条件只含主菜+配菜', pool.pool.every(r => ['main','side'].indexOf(r.role) !== -1));
+  ok('默认条件 ≤30 分', pool.pool.every(r => r.minutes <= 30));
+  ok('晚餐池只含可当晚餐的菜', pool.pool.every(r => r.meals.indexOf('dinner') !== -1));
+  flush();
+
+  /* 5. 去重 */
+  section('去重与降权');
+  const st2 = C.defaultState();
+  st2.members.a.allergies = ['oyster'];
+  st2.doneLog = [{ recipeId: 'C1', date: '2026-10-05', by: 'a' }];
+  const pool2 = C.buildPool(cond, builtin, st2, ingIndex, { now, today: '2026-10-09' });
+  ok('池子够大时做过的菜被排除', pool2.freshCount >= 4 ? pool2.pool.every(r => r.id !== 'C1') : true, 'fresh=' + pool2.freshCount + ' usedStale=' + pool2.usedStale);
+  const wStale = C.weightOf(byId['C1'], cond, st2, ingIndex, '2026-10-09');
+  const st3 = C.defaultState();
+  const wFresh = C.weightOf(byId['C1'], cond, st3, ingIndex, '2026-10-09');
+  ok('做过的菜权重明显低于没做过的', wStale < wFresh * 0.2, 'stale=' + wStale.toFixed(1) + ' fresh=' + wFresh.toFixed(1));
+  // 降权倍数是 0.15；比值 0.125 = 0.15 / 1.2（没做过的菜另有 1.2 的「从未做过」加成）
+  ok('降权倍数正确（0.15，叠加从未做过 1.2 后比值 0.125）', Math.abs(wStale / wFresh - 0.125) < 0.005, (wStale / wFresh).toFixed(4));
+  // 隔离验证 0.15 倍率：同一个 state（C1 做过），只改 excludeDays。
+  // 这样「从未做过 1.2 加成」在两边都不生效，只剩降权倍数。
+  const cond7 = Object.assign({}, cond, { healthyFirst: false, excludeDays: 7 });
+  const cond0 = Object.assign({}, cond, { healthyFirst: false, excludeDays: 0 });
+  const wRecent = C.weightOf(byId['C1'], cond7, st2, ingIndex, '2026-10-09');
+  const wNotExcluded = C.weightOf(byId['C1'], cond0, st2, ingIndex, '2026-10-09');
+  ok('纯降权倍率 = 0.15（隔离 excludeDays 后）', Math.abs(wRecent / wNotExcluded - 0.15) < 0.005,
+     'recent=' + wRecent.toFixed(1) + ' notExcluded=' + wNotExcluded.toFixed(1) + ' ratio=' + (wRecent / wNotExcluded).toFixed(4));
+  flush();
+
+  /* 6. 抽样 */
+  section('加权随机抽样');
+  let seed = 42;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const picked = C.weightedPick(pool.pool, 4, cond, st, ingIndex, { rnd, today: '2026-10-09' });
+  ok('抽出 4 道', picked.length === 4, 'got=' + picked.length);
+  ok('抽出的菜互不重复', new Set(picked.map(r => r.id)).size === 4);
+  ok('抽出的菜都在池内', picked.every(r => pool.pool.indexOf(r) !== -1));
+  let dup = false;
+  for (let i = 0; i < 300; i++) {
+    const p = C.weightedPick(pool.pool, 5, cond, st, ingIndex, { rnd, today: '2026-10-09' });
+    if (new Set(p.map(r => r.id)).size !== p.length) { dup = true; break; }
+  }
+  ok('300 轮抽样均不重复', !dup);
+  ok('池子小于候选数时全取出不报错', C.weightedPick(pool.pool.slice(0, 2), 5, cond, st, ingIndex, { rnd, today: '2026-10-09' }).length === 2);
+  // 健康优先是否真的影响结果
+  const healthyOn = Object.assign({}, cond, { healthyFirst: true });
+  const healthyOff = Object.assign({}, cond, { healthyFirst: false });
+  let hSum = 0, nSum = 0;
+  for (let i = 0; i < 400; i++) {
+    hSum += C.weightedPick(pool.pool, 1, healthyOn, st, ingIndex, { rnd, today: '2026-10-09' })[0].healthy;
+    nSum += C.weightedPick(pool.pool, 1, healthyOff, st, ingIndex, { rnd, today: '2026-10-09' })[0].healthy;
+  }
+  ok('健康优先确实提高了健康度均值', hSum > nSum, 'on=' + (hSum/400).toFixed(2) + ' off=' + (nSum/400).toFixed(2));
+  flush();
+
+  /* 7. 投票 */
+  section('投票判定');
+  const cands = ['C1', 'C9', 'B8', 'B1'];
+  const va = { C1: 'want', C9: 'ok', B8: 'want', B1: 'no' };
+  const vb = { C1: 'want', C9: 'want', B8: 'ok', B1: 'ok' };
+  const g = C.groupVotes(cands, va, vb);
+  ok('双想吃 → want 组', g.want.length === 1 && g.want[0] === 'C1', JSON.stringify(g.want));
+  ok('无人反对 → ok 组', g.ok.length === 2 && g.ok.indexOf('C9') !== -1 && g.ok.indexOf('B8') !== -1, JSON.stringify(g.ok));
+  ok('有人不想吃 → no 组', g.no.length === 1 && g.no[0] === 'B1');
+  ok('三组之和 = 候选数', g.want.length + g.ok.length + g.no.length === cands.length);
+  const g2 = C.groupVotes(['C1'], { C1: 'no' }, { C1: 'ok' });
+  ok('任一方 no 即出局', g2.no.length === 1 && g2.want.length === 0 && g2.ok.length === 0);
+  const g3 = C.groupVotes(['C1'], { C1: 'ok' }, { C1: 'ok' });
+  ok('双方都行 → ok 组', g3.ok.length === 1);
+  const g4 = C.groupVotes(['C1'], { C1: 'want' }, { C1: 'ok' });
+  ok('单方想吃 → ok 组（非 want）', g4.ok.length === 1 && g4.want.length === 0);
+  const g5 = C.groupVotes(['C1', 'C9'], { C1: 'want', C9: 'want' }, { C1: 'want', C9: 'want' });
+  ok('双方全想吃 → 2 道都在 want', g5.want.length === 2);
+  ok('从 ok 组能定出一道', g.ok.indexOf(C.pickFromOk(g.ok, byId, rnd)) !== -1);
+  flush();
+
+  /* 8. 采购清单 */
+  section('采购清单');
+  const st4 = C.defaultState();
+  st4.pantry.items = ['scallion'];
+  const list = C.buildShoppingList([
+    { recipeId: 'C1', date: '2026-10-09' },
+    { recipeId: 'C9', date: '2026-10-09' }
+  ], st4, ingIndex, byId);
+  const ids = list.toBuy.map(x => x.id);
+  ok('清单非空', list.toBuy.length > 0, JSON.stringify(ids));
+  ok('家里有的葱不进采购组', ids.indexOf('scallion') === -1, JSON.stringify(ids));
+  ok('常备调料不进采购组', ids.indexOf('oil') === -1 && ids.indexOf('garlic') === -1);
+  ok('番茄/鸡蛋/西兰花在清单里', ids.indexOf('tomato') !== -1 && ids.indexOf('egg') !== -1 && ids.indexOf('broccoli') !== -1, JSON.stringify(ids));
+  ok('按分类分组存在', Object.keys(list.toBuyByCat).length > 0);
+  const st5 = C.defaultState();
+  const list2 = C.buildShoppingList([
+    { recipeId: 'C1', date: '2026-10-09' },
+    { recipeId: 'F6', date: '2026-10-09' }
+  ], st5, ingIndex, byId);
+  const tomato = list2.toBuy.filter(x => x.id === 'tomato')[0];
+  ok('同一食材跨菜合并为一行', tomato && tomato.amounts.length === 2, tomato ? JSON.stringify(tomato.amounts) : 'missing');
+  ok('合并行记录了两道菜名', tomato && tomato.dishes.length === 2, tomato ? JSON.stringify(tomato.dishes) : '');
+  const list3 = C.buildShoppingList([{ recipeId: 'C1', date: '2026-10-01' }], C.defaultState(), ingIndex, byId);
+  ok('超过 48 小时的菜单不进清单', list3.toBuy.length === 0);
+  flush();
+
+  /* 9. 格式化 */
+  section('格式化');
+  ok('分钟 <60', C.fmtMinutes(45) === '45 分钟');
+  ok('分钟 =60', C.fmtMinutes(60) === '1 小时');
+  ok('分钟 >60', C.fmtMinutes(200) === '3 小时 20 分');
+  ok('成本档', C.fmtCost(1) === '¥' && C.fmtCost(3) === '¥¥¥');
+  ok('难度', C.fmtDifficulty(1) === '简单' && C.fmtDifficulty(2) === '中等');
+  ok('辣度 0 = 不辣', C.fmtSpicy(0) === '不辣');
+  ok('辣度 2 = 两个辣椒', C.fmtSpicy(2) === '🌶️🌶️');
+  ok('相对日期：今天', C.fmtRelativeDate('2026-10-09', '2026-10-09') === '今天');
+  ok('相对日期：昨天', C.fmtRelativeDate('2026-10-08', '2026-10-09') === '昨天');
+  ok('相对日期：7 天前', C.fmtRelativeDate('2026-10-02', '2026-10-09') === '7 天前');
+  ok('日期标题', C.fmtDateTitle('2026-10-09') === '10月9日 周五', C.fmtDateTitle('2026-10-09'));
+  flush();
+
+  /* 10. 边界 */
+  section('边界情况');
+  const emptyPool = C.buildPool(cond, [], st, ingIndex, { now, today: '2026-10-09' });
+  ok('空菜库不报错且有提示', emptyPool.pool.length === 0 && emptyPool.notes.length > 0);
+  const strict = Object.assign(C.defaultConditions(), { maxMinutes: 15, cheapOnly: true, easyOnly: true });
+  const sp = C.buildPool(strict, builtin, st, ingIndex, { now, today: '2026-10-09' });
+  ok('严格条件能出池或给出错误提示', sp.pool.length > 0 || sp.notes.some(n => n.level === 'error'), 'size=' + sp.pool.length);
+  const solo = C.defaultState();
+  ok('单机模式（无同步配置）照常出池', C.buildPool(cond, builtin, solo, ingIndex, { now, today: '2026-10-09' }).pool.length > 0);
+  const noTools = Object.assign(C.defaultConditions(), { tools: [] });
+  ok('器具条件为空时不限制', C.buildPool(noTools, builtin, st, ingIndex, { now, today: '2026-10-09' }).pool.length > 0);
+  const onlyWok = Object.assign(C.defaultConditions(), { tools: ['wok'] });
+  const wp = C.buildPool(onlyWok, builtin, st, ingIndex, { now, today: '2026-10-09' });
+  ok('只用锅时排除了需要蒸笼的菜', wp.pool.every(r => (r.tools || []).every(t => t === 'wok')), 'size=' + wp.pool.length);
+  const kw = Object.assign(C.defaultConditions(), { keyword: '鸡' });
+  const kp = C.buildPool(kw, builtin, st, ingIndex, { now, today: '2026-10-09' });
+  ok('关键词「鸡」能筛出含鸡的菜', kp.pool.length > 0 && kp.pool.length < pool.pool.length, 'size=' + kp.pool.length);
+  // 自定义菜参与随机
+  const stC = C.defaultState();
+  stC.customRecipes = [{
+    id: 'my1', name: '我的菜', emoji: '🍲', meals: ['dinner'], role: 'main',
+    minutes: 20, cost: 1, difficulty: 1, spicy: 0, healthy: 4,
+    tools: ['wok'], tags: ['家常'], ingredients: [{ id: 'egg', amount: '2 个' }], tip: ''
+  }];
+  const cp = C.buildPool(cond, builtin, stC, ingIndex, { now, today: '2026-10-09' });
+  ok('自定义菜参与随机池', cp.pool.some(r => r.id === 'my1'), 'size=' + cp.pool.length);
+  // 内置菜覆盖生效
+  const stO = C.defaultState();
+  stO.recipeOverrides = { C1: { minutes: 5 } };
+  const op = C.buildPool(Object.assign(C.defaultConditions(), { maxMinutes: 10 }), builtin, stO, ingIndex, { now, today: '2026-10-09' });
+  ok('内置菜覆盖生效（15→5 分后可入选）', op.pool.some(r => r.id === 'C1'), 'size=' + op.pool.length);
+  flush();
+
+  /* 汇总 */
+  const cls = fail ? 'bad' : 'ok';
+  log.push('<div class="sum ' + cls + '">PASS ' + pass + '　FAIL ' + fail + '　（共 ' + (pass + fail) + ' 项）</div>');
+  out.innerHTML = log.join('\n');
+})();
+</script>
+</body>
+</html>

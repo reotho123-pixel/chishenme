@@ -1,0 +1,20 @@
+{
+  "name": "待会吃什么",
+  "short_name": "待会吃什么",
+  "description": "两个人一起定今晚吃什么：随机选菜、双人投票、按食材找菜、采购清单",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#E9EAEE",
+  "theme_color": "#F7C8D4",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["food", "lifestyle", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
