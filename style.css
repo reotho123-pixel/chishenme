@@ -462,6 +462,42 @@ hr.dash{border:none;border-top:2.5px dashed #D8D8D8;margin:0 0 11px}
 .feedback .ft{font-size:11.5px;font-weight:800;line-height:1.5}
 .feedback .fs{font-size:10.5px;font-weight:700;color:#B9B9B9;margin-top:3px}
 
+/* ---------- 食材页：已添加分组 ---------- */
+.have-groups{display:flex;flex-direction:column;gap:8px}
+.have-row{display:flex;align-items:flex-start;gap:9px}
+.have-cat{
+  flex:0 0 48px;font-size:10.5px;font-weight:800;color:#8A8A8A;
+  padding-top:8px;text-align:right;
+}
+.have-row .chips{flex:1}
+
+/* ---------- 弹层里的副标题 ---------- */
+.sheet-top .st-sub{font-size:11px;font-weight:700;color:#8A8A8A;margin-top:2px}
+/* 搜索框里右侧那个 ✕ 要能点 */
+.search .st{cursor:pointer;padding:0 2px}
+
+/* ---------- 筛选胶囊组（菜库 / 食材选择器共用） ---------- */
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;overflow:visible}
+.fchip{
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
+  font-size:11.5px;font-weight:800;color:#111;background:#fff;
+  border:2.5px solid #111;border-radius:999px;padding:6px 11px;
+  box-shadow:2px 2px 0 #111;white-space:nowrap;cursor:pointer;
+}
+.fchip.on{background:#F7C8D4}
+.fchip:active{transform:translate(2px,2px);box-shadow:none}
+/* 花形图标（菜库筛选入口） */
+.flower{
+  width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:#F7C8D4;
+  border:2.5px solid #111;display:grid;place-items:center;box-shadow:2px 2px 0 #111;
+}
+
+/* ---------- 食材选择器 ---------- */
+.sheet .filters{overflow:visible}
+/* 结果区 */
+.sheet .chips{gap:7px}
+.sheet .chip{cursor:pointer}
+
 /* ---------- 同步状态细条 ---------- */
 .sync-bar{
   background:#E4F4E9;border:2.5px solid #111;border-radius:12px;

@@ -779,7 +779,15 @@
     var r = id ? recipe(id) : null;
     var isNew = !r;
     var EMOJIS = ['🍅','🥦','🥒','🍳','🍜','🍚','🥘','🍲','🥗','🍗','🥩','🐟','🦐','🥚','🍆','🥕','🌽','🥔','🍄','🥬','🍤','🍞','🥟','🍛','🍝','🍢','🍣','🍱','🥞','🧇','🥪','🌮','🌯','🥙','🍕','🍔','🍟','🧀','🍠','🎃'];
-    var cur = r || { name: '', emoji: '🍽', meals: ['dinner'], role: 'main', minutes: 20, cost: 1, difficulty: 1, spicy: 0, healthy: 4, tools: ['wok'], tags: [], ingredients: [], tip: '' };
+    var base = r || { name: '', emoji: '🍽', meals: ['dinner'], role: 'main', minutes: 20, cost: 1, difficulty: 1, spicy: 0, healthy: 4, tools: ['wok'], tags: [], ingredients: [], tip: '' };
+
+    // 草稿：编辑不再直接改原对象，先攒在 _draft 里，保存时才写回
+    if (!S._draft || S._draftFor !== (id || '__new__')) {
+      S._draft = JSON.parse(JSON.stringify(base));
+      S._draftFor = id || '__new__';
+      S._formParams = S.view.params;
+    }
+    var cur = S._draft;
 
     var h = '<div class="bar"><div class="back" data-act="back">←</div><div>' +
             '<div class="ttl">' + (isNew ? '新建菜品' : '编辑菜品') + '</div>' +
@@ -888,40 +896,44 @@
          '<div><div class="batt-lb">冰箱存货</div></div>' +
          '<div class="batt-num">' + pantry.length + ' 样</div></div></div></div>';
 
-    h += '<div class="sec"><span class="t">家里现在有</span><span class="h">♡</span></div>';
-    // 按分类列出常用食材；每类限量，避免一次铺满上百个 chip
-    var common = S.ingredients.filter(function (g) { return !g.staple; });
-    var byCat = {};
-    common.forEach(function (g) {
-      if (!byCat[g.category]) byCat[g.category] = [];
-      byCat[g.category].push(g);
-    });
-    // 已勾选的排前面，方便确认
-    Object.keys(byCat).forEach(function (cat) {
-      byCat[cat].sort(function (x, y) {
-        var ox = pantry.indexOf(x.id) !== -1 ? 0 : 1;
-        var oy = pantry.indexOf(y.id) !== -1 ? 0 : 1;
-        return ox - oy;
-      });
-    });
-    var order = ['vegetable','protein','seafood','soy','staple','fruit','dry','condiment'];
-    var PER_CAT = 8;
-    var expanded = S.view && S.view.params && S.view.params.allPantry;
-    h += '<div class="chips">';
-    order.forEach(function (cat) {
-      if (!byCat[cat]) return;
-      var list = expanded ? byCat[cat] : byCat[cat].slice(0, PER_CAT);
-      list.forEach(function (g) {
-        var on = pantry.indexOf(g.id) !== -1;
-        h += '<span class="chip' + (on ? ' on' : '') + '" data-pantry="' + g.id + '">' + esc(g.name) + '</span>';
-      });
-    });
-    h += '</div>';
-    if (!expanded) {
-      var totalCommon = common.length;
-      h += '<div class="btn-sub" data-act="expand-pantry">展开全部 ' + totalCommon + ' 种食材</div>';
+    h += '<div class="sec"><span class="t">家里现在有</span><span class="h">♡</span>' +
+         (pantry.length ? '<span class="count-tag">' + pantry.length + ' 样</span>' : '') + '</div>';
+
+    // 搜索添加（主入口）
+    h += '<div class="search" data-act="open-ing-picker">' +
+         '<span class="mag">＋</span>' +
+         '<span class="ph">搜索添加食材…</span>' +
+         '<span class="st">🔍</span>' +
+         '</div>';
+
+    // 已添加的食材：直接列出，点一下即移除
+    if (!pantry.length) {
+      h += '<div class="note-mini" style="text-align:center;padding:12px 0">' +
+           '还没添加食材。<br>点上面的搜索框，输入「番茄」「鸡蛋」就能加进来。</div>';
     } else {
-      h += '<div class="btn-sub" data-act="collapse-pantry">收起</div>';
+      // 按分类分组展示已添加的，方便一眼扫过
+      var haveByCat = {};
+      pantry.forEach(function (id) {
+        var g = S.ingIndex.byId[id];
+        if (!g) return;
+        if (!haveByCat[g.category]) haveByCat[g.category] = [];
+        haveByCat[g.category].push(g);
+      });
+      var catOrder = ['vegetable','protein','seafood','soy','staple','fruit','dry','condiment','other'];
+      h += '<div class="have-groups">';
+      catOrder.forEach(function (cat) {
+        var list = haveByCat[cat];
+        if (!list || !list.length) return;
+        h += '<div class="have-row">' +
+             '<span class="have-cat">' + (C.CATEGORY_LABEL[cat] || '其他') + '</span>' +
+             '<span class="chips" style="flex:1">' +
+             list.map(function (g) {
+               return '<span class="chip on" data-pantry="' + g.id + '" title="点一下移除">' + esc(g.name) + '</span>';
+             }).join('') +
+             '</span></div>';
+      });
+      h += '</div>';
+      h += '<div class="note-mini" style="text-align:center">点食材可以移除</div>';
     }
 
     // 能做这些菜
@@ -929,7 +941,7 @@
     h += '<div class="sec" style="margin-top:6px"><span class="t">' + canDoLabel + '</span>' +
          (canDo.length || missOne.length ? '<span class="count-tag">' + (canDo.length + missOne.length) + ' 道</span>' : '') + '</div>';
     if (!pantry.length) {
-      h += '<div class="note-mini">点亮上面的食材，这里就会列出你能做的菜。</div>';
+      h += '<div class="note-mini">上面添加食材后，这里会列出你能做的菜。</div>';
     }
 
     for (var a = 0; a < Math.min(canDo.length, 8); a++) {
@@ -947,7 +959,7 @@
            '<span class="go" data-act="open-recipe" data-id="' + mm.r.id + '">看看</span></div>';
     }
     if (!canDo.length && !missOne.length) {
-      h += '<div class="note-mini">还没有勾选食材，或菜库太小。点上面的食材点亮家里有的。</div>';
+      h += '<div class="note-mini">上面添加食材后，这里会列出你能做的菜。</div>';
     }
 
     // 采购清单入口（竖吊牌）
@@ -1427,6 +1439,236 @@
     }
   }
 
+  /* ---------- 食材选择器（可搜索，P3 / P8 共用） ---------- */
+
+  // 常买的食材排前面，避免默认列表全被蔬菜占满
+  var COMMON_FIRST = [
+    'egg', 'tomato', 'pork', 'pork-mince', 'chicken-breast', 'chicken-wing', 'chicken-leg',
+    'tofu', 'potato', 'wawacai', 'corn', 'scallion', 'garlic', 'ginger', 'rice', 'cooked-rice',
+    'noodle', 'flour', 'shrimp', 'shrimp-meat', 'beef', 'sea-bass', 'sole-fish',
+    'broccoli', 'cabbage', 'carrot', 'white-radish', 'shiitake', 'cucumber', 'eggplant', 'lettuce'
+  ];
+
+  // 食材搜索：名字、别名都匹配
+  function searchIngredients(q, opts) {
+    opts = opts || {};
+    var kw = String(q || '').trim().toLowerCase();
+    var list = S.ingredients.filter(function (g) {
+      if (opts.excludeStaple && g.staple) return false;
+      if (opts.onlyStaple && !g.staple) return false;
+      if (!kw) return true;
+      var hay = g.name + ' ' + (g.alias || []).join(' ');
+      return hay.toLowerCase().indexOf(kw) !== -1;
+    });
+    if (kw) {
+      // 搜索时按匹配质量排序：名字开头命中的排前，短的排前
+      list.sort(function (a, b) {
+        var an = a.name.toLowerCase(), bn = b.name.toLowerCase();
+        var as = an.indexOf(kw) === 0 ? 0 : an.indexOf(kw) > -1 ? 1 : 2;
+        var bs = bn.indexOf(kw) === 0 ? 0 : bn.indexOf(kw) > -1 ? 1 : 2;
+        if (as !== bs) return as - bs;
+        return a.name.length - b.name.length;
+      });
+    } else {
+      // 无搜索词：常买的排前面
+      var rank = {};
+      COMMON_FIRST.forEach(function (id, i) { rank[id] = i; });
+      list.sort(function (a, b) {
+        var ar = rank[a.id] === undefined ? 999 : rank[a.id];
+        var br = rank[b.id] === undefined ? 999 : rank[b.id];
+        return ar - br;
+      });
+    }
+    return list;
+  }
+
+  /**
+   * 渲染食材选择弹层
+   * params: { q, cat, sel: [ids], mode: 'pantry'|'form'|'diet', title }
+   */
+  function renderIngredientPicker(p) {
+    p = p || {};
+    var q = p.q || '';
+    var cat = p.cat || 'all';
+    var sel = p.sel || [];
+    var mode = p.mode || 'pantry';
+    var title = p.title || '添加食材';
+
+    var list = searchIngredients(q, { excludeStaple: true });
+    if (cat !== 'all') {
+      list = list.filter(function (g) { return g.category === cat; });
+    }
+    // 没搜索词时：已选的排前面
+    if (!q) {
+      list = list.slice().sort(function (a, b) {
+        var ao = sel.indexOf(a.id) !== -1 ? 0 : 1;
+        var bo = sel.indexOf(b.id) !== -1 ? 0 : 1;
+        if (ao !== bo) return ao - bo;
+        return 0;
+      });
+    }
+
+    var h = '';
+    h += '<div class="sheet-top"><div class="grip"></div>' +
+         '<div class="st">' + esc(title) + '</div>' +
+         '<div class="st-sub">' + (sel.length ? '已选 ' + sel.length + ' 样' : '搜索或直接点选') + '</div></div>';
+
+    // 搜索框
+    h += '<div class="search" data-act="focus-ing-search">' +
+         '<span class="mag">🔍</span>' +
+         '<span class="ph">' + (q ? esc(q) : '搜食材名，如「番茄」「鸡蛋」') + '</span>' +
+         (q ? '<span class="st" data-act="clear-ing-search">✕</span>' : '<span class="st">★</span>') +
+         '</div>';
+
+    // 已选 chips（可点删）
+    if (sel.length) {
+      h += '<div class="chips" style="margin-top:-2px">';
+      sel.forEach(function (id) {
+        var g = S.ingIndex.byId[id];
+        if (!g) return;
+        h += '<span class="chip on" data-ing-toggle="' + id + '">' + esc(g.name) + ' ✕</span>';
+      });
+      h += '</div>';
+    }
+
+    // 分类
+    var cats = [['all','全部'],['vegetable','蔬菜'],['protein','肉蛋'],['seafood','水产'],
+                ['soy','豆制品'],['staple','主食'],['dry','干货'],['fruit','水果'],['condiment','调料']];
+    h += '<div class="filters" style="flex-wrap:wrap;gap:6px">';
+    cats.forEach(function (c) {
+      var on = cat === c[0];
+      h += '<span class="fchip' + (on ? ' on' : '') + '" data-ing-cat="' + c[0] + '">' + c[1] + '</span>';
+    });
+    h += '</div>';
+
+    // 结果
+    var MAX = q ? 40 : 24;
+    var shown = list.slice(0, MAX);
+    if (!shown.length) {
+      h += '<div class="note-mini" style="text-align:center;padding:18px 0">' +
+           '没找到「' + esc(q) + '」<br><span style="font-size:10px">试试别的写法，比如「西红柿」或「番茄」</span></div>';
+    } else {
+      h += '<div class="chips">';
+      shown.forEach(function (g) {
+        var on = sel.indexOf(g.id) !== -1;
+        h += '<span class="chip' + (on ? ' on' : '') + '" data-ing-toggle="' + g.id + '">' + esc(g.name) + '</span>';
+      });
+      h += '</div>';
+      if (list.length > MAX) {
+        h += '<div class="note-mini" style="text-align:center">还有 ' + (list.length - MAX) +
+             ' 种，继续输入可以缩小范围</div>';
+      }
+    }
+
+    // 底部按钮
+    if (mode === 'pantry') {
+      h += '<div class="btn-main" data-act="ing-done">完 成（' + sel.length + ' 样）</div>';
+    } else if (mode === 'form') {
+      h += '<div class="btn-main" data-act="ing-done">加 入 菜 品</div>';
+    } else if (mode === 'diet') {
+      h += '<div class="btn-main" data-act="ing-done">确 定</div>';
+    }
+    h += '<div class="btn-sub" data-act="close-sheet">取消</div>';
+    return sheet(h);
+  }
+
+  /* ---------- 菜品编辑：草稿操作 ---------- */
+
+  function setDraft(key, val) {
+    if (!S._draft) return;
+    S._draft[key] = val;
+    render();
+  }
+
+  function toggleDraftMeal(m) {
+    if (!S._draft) return;
+    var arr = S._draft.meals || [];
+    var i = arr.indexOf(m);
+    if (i === -1) {
+      arr.push(m);
+    } else {
+      if (arr.length === 1) { toast('至少留一个餐次'); return; }
+      arr.splice(i, 1);
+    }
+    S._draft.meals = arr;
+    render();
+  }
+
+  function toggleDraftTool(t) {
+    if (!S._draft) return;
+    var arr = S._draft.tools || [];
+    var i = arr.indexOf(t);
+    if (i === -1) arr.push(t); else arr.splice(i, 1);
+    S._draft.tools = arr;
+    render();
+  }
+
+  function delDraftIng(idx) {
+    if (!S._draft || !S._draft.ingredients) return;
+    S._draft.ingredients.splice(idx, 1);
+    render();
+  }
+
+  function editDraftField(field) {
+    if (!S._draft) return;
+    if (field === 'name') {
+      var v = prompt('菜名', S._draft.name || '');
+      if (v === null) return;
+      if (!v.trim()) { toast('菜名不能为空'); return; }
+      S._draft.name = v.trim();
+    } else if (field === 'minutes') {
+      var m = prompt('耗时（分钟，1–240）', String(S._draft.minutes || 20));
+      if (m === null) return;
+      var n = parseInt(m, 10);
+      if (!n || n < 1 || n > 240) { toast('请输入 1–240 之间的整数'); return; }
+      S._draft.minutes = n;
+    } else if (field === 'tip') {
+      var t = prompt('小提示（可留空）', S._draft.tip || '');
+      if (t === null) return;
+      S._draft.tip = t.trim();
+    }
+    render();
+  }
+
+  /* ---------- 食材选择器：动作 ---------- */
+
+  function toggleIngPick(id) {
+    var p = S._pick;
+    if (!p) return;
+    var i = p.sel.indexOf(id);
+    if (i === -1) p.sel.push(id); else p.sel.splice(i, 1);
+    // 食材页模式：实时写入本机（关掉弹层也算已保存）
+    if (p.mode === 'pantry') {
+      S.state.pantry.items = p.sel.slice();
+      S.state.pantry.updatedAt = new Date().toISOString();
+      S.state.pantry.updatedBy = me();
+      save();
+      // 弹层内不整页重绘，只更新局部，避免搜索框失焦
+      refreshIngPicker();
+      return;
+    }
+    render();
+  }
+
+  function setIngCat(cat) {
+    if (!S._pick) return;
+    S._pick.cat = cat;
+    refreshIngPicker();
+  }
+
+  // 只重绘弹层内部，保留滚动位置
+  function refreshIngPicker() {
+    var mask = document.querySelector('.sheet-mask');
+    if (!mask) { render(); return; }
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML = renderIngredientPicker(S._pick);
+    var newSheet = wrapper.querySelector('.sheet');
+    var oldSheet = mask.querySelector('.sheet');
+    var keepScroll = oldSheet ? oldSheet.scrollTop : 0;
+    mask.replaceChild(newSheet, oldSheet);
+    newSheet.scrollTop = keepScroll;
+  }
+
   /* ---------- 弹层包装 ---------- */
   function sheet(inner) {
     return '<div class="sheet-mask" data-act="close-sheet"><div class="sheet" data-stop="1">' + inner + '</div></div>';
@@ -1443,6 +1685,7 @@
     else if (S.view && S.view.name === 'shopping') h = renderShopping();
     else if (S.view && S.view.name === 'random') h = renderRandomSheet(!!S.view.params.expanded);
     else if (S.view && S.view.name === 'sync') h = renderSync();
+    else if (S.view && S.view.name === 'ingPicker') h = renderIngredientPicker(S._pick);
     else if (S.tab === 'library') h = renderLibrary();
     else if (S.tab === 'pantry') h = renderPantry();
     else if (S.tab === 'me') h = renderMe();
@@ -1489,6 +1732,42 @@
   /* ---------- 事件 ---------- */
   function onClick(e) {
     var t = e.target;
+
+    // 先处理「无 data-act 但有专门标记」的元素。
+    // 注意顺序：这些元素可能嵌在 .sheet-mask[data-act=close-sheet] 里，
+    // 若先走 data-act 分支会被误判成「点遮罩 → 关弹层」。
+    var special = t;
+    while (special && special !== document.body) {
+      var d = special.dataset;
+      if (d) {
+        if (d.tab) {
+          S.tab = d.tab; S.view = null;
+          S._restoreScrollTop = 0;   // 切 Tab 回到顶部
+          render(); return;
+        }
+        if (d.vote) { setVote(d.id, d.vote); return; }
+        if (d.cond) { setCond(d.cond, d.val, d.multi === '1'); return; }
+        if (d.condSw) { toggleCond(d.condSw); return; }
+        if (d.pantry) { togglePantry(d.pantry); return; }
+        if (d.check) { toggleCheck(d.check); return; }
+        if (d.ingToggle) { toggleIngPick(d.ingToggle); return; }
+        if (d.ingCat) { setIngCat(d.ingCat); return; }
+        if (d.formEmoji) { setDraft('emoji', d.formEmoji); return; }
+        if (d.formMeal) { toggleDraftMeal(d.formMeal); return; }
+        if (d.formRole) { setDraft('role', d.formRole); return; }
+        if (d.formTool) { toggleDraftTool(d.formTool); return; }
+        if (d.formCost) { setDraft('cost', Number(d.formCost)); return; }
+        if (d.formDiff) { setDraft('difficulty', Number(d.formDiff)); return; }
+        if (d.formSpicy) { setDraft('spicy', Number(d.formSpicy)); return; }
+        if (d.formHealthy) { setDraft('healthy', Number(d.formHealthy)); return; }
+        if (d.formDelIng !== undefined) { delDraftIng(Number(d.formDelIng)); return; }
+        if (d.form) { editDraftField(d.form); return; }
+      }
+      // 遇到带 data-act 的祖先就停，交给下面的分支处理
+      if (d && d.act) break;
+      special = special.parentElement;
+    }
+
     // 找到最近的带 data-act 的元素
     var node = t;
     var act = null, data = {};
@@ -1498,31 +1777,9 @@
         data = node.dataset;
         break;
       }
-      // 投票按钮
-      if (node.dataset && node.dataset.vote) {
-        setVote(node.dataset.id, node.dataset.vote);
-        return;
-      }
       node = node.parentElement;
     }
-    if (!act) {
-      // tab 切换
-      var tn = t;
-      while (tn && tn !== document.body) {
-        if (tn.dataset && tn.dataset.tab) {
-          S.tab = tn.dataset.tab; S.view = null;
-          S._restoreScrollTop = 0;   // 切 Tab 回到顶部
-          render(); return;
-        }
-        if (tn.dataset && tn.dataset.cond) { setCond(tn.dataset.cond, tn.dataset.val, tn.dataset.multi === '1'); return; }
-        if (tn.dataset && tn.dataset.condSw) { toggleCond(tn.dataset.condSw); return; }
-        if (tn.dataset && tn.dataset.pantry) { togglePantry(tn.dataset.pantry); return; }
-        if (tn.dataset && tn.dataset.check) { toggleCheck(tn.dataset.check); return; }
-        tn = tn.parentElement;
-      }
-      return;
-    }
-    if (node.dataset && node.dataset.stop) { /* sheet 内部，不关 */ }
+    if (!act) return;
 
     switch (act) {
       case 'back': S.view = null; render(); break;
@@ -1561,6 +1818,51 @@
         render(); break;
       case 'collapse-pantry':
         S.view = null; S.tab = 'pantry'; render(); break;
+
+      /* ---- 食材选择器 ---- */
+      case 'open-ing-picker': {
+        // 从食材页打开：已选 = 当前 pantry，改动实时写入
+        S._pick = { mode: 'pantry', q: '', cat: 'all',
+                    sel: (S.state.pantry.items || []).slice(),
+                    restore: { tab: 'pantry' } };
+        S.view = { name: 'ingPicker', params: {} };
+        render(); break;
+      }
+      case 'focus-ing-search': {
+        var v = prompt('搜索食材（可输入菜名或别名，如「西红柿」）', (S._pick && S._pick.q) || '');
+        if (v !== null) { S._pick.q = v; render(); }
+        break;
+      }
+      case 'clear-ing-search':
+        S._pick.q = ''; refreshIngPicker(); break;
+      case 'ing-done': {
+        var pk = S._pick;
+        if (pk.mode === 'pantry') {
+          S.state.pantry.items = pk.sel.slice();
+          S.state.pantry.updatedAt = new Date().toISOString();
+          S.state.pantry.updatedBy = me();
+          save();
+          S._pick = null;
+          S.view = null; S.tab = 'pantry';
+          toast('家里有 ' + pk.sel.length + ' 样食材');
+        } else if (pk.mode === 'form') {
+          // 追加到菜品表单的食材草稿
+          var d = S._draft || (S._draft = {});
+          d.ingredients = d.ingredients || [];
+          pk.sel.forEach(function (id) {
+            if (!d.ingredients.some(function (x) { return x.id === id; })) {
+              d.ingredients.push({ id: id, amount: '适量' });
+            }
+          });
+          S._pick = null;
+          S.view = { name: 'recipeForm', params: S._formParams || {} };
+          toast('加了 ' + pk.sel.length + ' 样食材');
+        } else {
+          S._pick = null;
+          S.view = null; S.tab = 'pantry';
+        }
+        render(); break;
+      }
       case 'clear-search': S.view = null; S.tab = 'library'; render(); break;
       case 'focus-search': {
         var q = prompt('搜索菜名或食材', '');
@@ -1625,7 +1927,17 @@
       case 'edit-staple': toast('常备调料管理：下一版接入'); break;
       case 'toast-action': if (S.toast && S.toast.action) S.toast.action(); S.toast = null; render(); break;
       case 'save-recipe': saveRecipeForm(); break;
-      case 'add-ing': addIngredientPrompt(); break;
+      case 'add-ing': {
+        // 用食材选择器，不再让用户手输 id
+        S._pick = {
+          mode: 'form', q: '', cat: 'all',
+          sel: (S._draft && S._draft.ingredients ? S._draft.ingredients.map(function (x) { return x.id; }) : []),
+          title: '添加食材'
+        };
+        S._formParams = S.view.params;
+        S.view = { name: 'ingPicker', params: {} };
+        render(); break;
+      }
       case 'reset-recipe': resetRecipe(data.id); break;
       case 'delete-recipe': deleteRecipe(data.id); break;
       default: break;
@@ -1847,22 +2159,6 @@
     m.allergies = allergies.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     save();
     toast('已保存');
-  }
-
-  function addIngredientPrompt() {
-    var id = prompt('食材 id（如 tomato 番茄 / egg 鸡蛋 / scallion 葱）\n可到「菜库」搜菜名查看用法', '');
-    if (id === null) return;
-    id = id.trim();
-    if (!id) return;
-    if (!S.ingIndex.byId[id]) { alert('没有这个食材 id。可用示例：tomato / egg / scallion / tofu / pork-mince / shiitake'); return; }
-    var amount = prompt('用量（如 2 个 / 适量）', '适量');
-    if (amount === null) return;
-    S._formIngredients = S._formIngredients || null;
-    // 直接把表单食材暂存在 state 里（简化处理：写入临时草稿）
-    var draft = S._draft || (S._draft = {});
-    draft.ingredients = draft.ingredients || [];
-    draft.ingredients.push({ id: id, amount: amount.trim() || '适量' });
-    toast('已添加 ' + S.ingIndex.byId[id].name);
   }
 
   function saveRecipeForm() {
