@@ -181,11 +181,16 @@
 
   /* ---------- 渲染：公共片段 ---------- */
 
+  // 底部导航用标记包起来，render() 会把它抽出来放进固定的 nav-dock
+  var NAV_MARK = '<!--__NAV__-->';
+
   function navHTML(active) {
     var items = [['today', '今天'], ['library', '菜库'], ['pantry', '食材'], ['me', '我的']];
-    return '<div class="nav-outer">' + items.map(function (it) {
-      return '<div class="nav-i' + (it[0] === active ? ' on' : '') + '" data-tab="' + it[0] + '">' + it[1] + '</div>';
-    }).join('') + '</div>';
+    return NAV_MARK +
+           '<div class="nav-outer">' + items.map(function (it) {
+             return '<div class="nav-i' + (it[0] === active ? ' on' : '') + '" data-tab="' + it[0] + '">' + it[1] + '</div>';
+           }).join('') + '</div>' +
+           NAV_MARK;
   }
 
   function stars(n, total) {
@@ -1454,7 +1459,31 @@
            (S.toast.actionLabel ? '<span class="ta" data-act="toast-action">' + esc(S.toast.actionLabel) + '</span>' : '') +
            '</div>';
     }
-    app.innerHTML = '<div class="phone"><div class="scr">' + h + '</div></div>';
+
+    // 内容与底部导航分离：导航固定在 nav-dock，不随内容滚动
+    var navHTMLPart = '';
+    var parts = h.split(NAV_MARK);
+    if (parts.length >= 3) {
+      navHTMLPart = parts[1];
+      h = parts[0] + parts.slice(2).join('');
+    }
+
+    // 保留滚动位置：勾选食材、切条件会重渲染，但不能把页面弹回顶部
+    var scr = app.querySelector('.scr');
+    var keepScroll = scr ? scr.scrollTop : 0;
+
+    app.innerHTML = '<div class="phone">' +
+                      '<div class="scr">' + h + '</div>' +
+                      (navHTMLPart ? '<div class="nav-dock">' + navHTMLPart + '</div>' : '') +
+                    '</div>';
+
+    if (S._restoreScrollTop !== undefined) {
+      // 显式要求：回到顶部（如切换 Tab / 进入二级页）
+      keepScroll = S._restoreScrollTop;
+      S._restoreScrollTop = undefined;
+    }
+    var newScr = app.querySelector('.scr');
+    if (newScr && keepScroll > 0) newScr.scrollTop = keepScroll;
   }
 
   /* ---------- 事件 ---------- */
@@ -1480,7 +1509,11 @@
       // tab 切换
       var tn = t;
       while (tn && tn !== document.body) {
-        if (tn.dataset && tn.dataset.tab) { S.tab = tn.dataset.tab; S.view = null; render(); return; }
+        if (tn.dataset && tn.dataset.tab) {
+          S.tab = tn.dataset.tab; S.view = null;
+          S._restoreScrollTop = 0;   // 切 Tab 回到顶部
+          render(); return;
+        }
         if (tn.dataset && tn.dataset.cond) { setCond(tn.dataset.cond, tn.dataset.val, tn.dataset.multi === '1'); return; }
         if (tn.dataset && tn.dataset.condSw) { toggleCond(tn.dataset.condSw); return; }
         if (tn.dataset && tn.dataset.pantry) { togglePantry(tn.dataset.pantry); return; }
@@ -1503,15 +1536,16 @@
         save(); toast('已保存为默认条件'); break;
       case 'do-draw': doDraw(); break;
       case 'pick-self':
-        S.tab = 'library'; S.view = null; render(); toast('点任意菜即定今晚做'); break;
+        S.tab = 'library'; S.view = null; S._restoreScrollTop = 0;
+        render(); toast('点任意菜即定今晚做'); break;
       case 'find-by-pantry':
-        S.tab = 'pantry'; S.view = null; render(); break;
-      case 'go-library': S.tab = 'library'; S.view = null; render(); break;
-      case 'go-shopping': S.view = { name: 'shopping' }; render(); break;
-      case 'go-recent': S.tab = 'me'; S.view = null; render(); break;
-      case 'open-recipe': S.view = { name: 'recipe', params: { id: data.id } }; render(); break;
-      case 'edit-recipe': S.view = { name: 'recipeForm', params: { id: data.id } }; render(); break;
-      case 'new-recipe': S.view = { name: 'recipeForm', params: {} }; render(); break;
+        S.tab = 'pantry'; S.view = null; S._restoreScrollTop = 0; render(); break;
+      case 'go-library': S.tab = 'library'; S.view = null; S._restoreScrollTop = 0; render(); break;
+      case 'go-shopping': S.view = { name: 'shopping' }; S._restoreScrollTop = 0; render(); break;
+      case 'go-recent': S.tab = 'me'; S.view = null; S._restoreScrollTop = 0; render(); break;
+      case 'open-recipe': S.view = { name: 'recipe', params: { id: data.id } }; S._restoreScrollTop = 0; render(); break;
+      case 'edit-recipe': S.view = { name: 'recipeForm', params: { id: data.id } }; S._restoreScrollTop = 0; render(); break;
+      case 'new-recipe': S.view = { name: 'recipeForm', params: {} }; S._restoreScrollTop = 0; render(); break;
       case 'done': markDone(data.id); toast('已记下「' + (recipe(data.id) || {}).name + '」', '撤销', function () { undoDone(data.id); }); break;
       case 'undo-done': undoDone(data.id); render(); break;
       case 'remove-tonight': removeTonight(data.id); render(); break;
@@ -1552,7 +1586,7 @@
       case 'export': doExport(); break;
       case 'import': doImport(); break;
       case 'clear': doClear(); break;
-      case 'sync-setup': S.view = { name: 'sync', params: {} }; render(); break;
+      case 'sync-setup': S.view = { name: 'sync', params: {} }; S._restoreScrollTop = 0; render(); break;
       case 'sync-connect': doSyncConnect(); break;
       case 'sync-now': doPull().then(function () { return doPush(); }).then(function () { setSyncStatus('ok', '已同步'); }); break;
       case 'sync-disconnect': doSyncDisconnect(); break;
