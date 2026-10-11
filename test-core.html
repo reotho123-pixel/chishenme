@@ -190,11 +190,14 @@ h1{font-size:16px;color:#fff;margin-bottom:14px}
 
   /* 8. 采购清单 */
   section('采购清单');
+  // 用「今天」而不是硬编码日期 —— 清单有「超过 48 小时丢弃」规则，
+  // 写死日期会让测试在两天后自己失败（踩过一次）。
+  const TODAY = C.dateStr();
   const st4 = C.defaultState();
   st4.pantry.items = ['scallion'];
   const list = C.buildShoppingList([
-    { recipeId: 'C1', date: '2026-10-09' },
-    { recipeId: 'C9', date: '2026-10-09' }
+    { recipeId: 'C1', date: TODAY },
+    { recipeId: 'C9', date: TODAY }
   ], st4, ingIndex, byId);
   const ids = list.toBuy.map(x => x.id);
   ok('清单非空', list.toBuy.length > 0, JSON.stringify(ids));
@@ -204,14 +207,20 @@ h1{font-size:16px;color:#fff;margin-bottom:14px}
   ok('按分类分组存在', Object.keys(list.toBuyByCat).length > 0);
   const st5 = C.defaultState();
   const list2 = C.buildShoppingList([
-    { recipeId: 'C1', date: '2026-10-09' },
-    { recipeId: 'F6', date: '2026-10-09' }
+    { recipeId: 'C1', date: TODAY },
+    { recipeId: 'F6', date: TODAY }
   ], st5, ingIndex, byId);
   const tomato = list2.toBuy.filter(x => x.id === 'tomato')[0];
   ok('同一食材跨菜合并为一行', tomato && tomato.amounts.length === 2, tomato ? JSON.stringify(tomato.amounts) : 'missing');
   ok('合并行记录了两道菜名', tomato && tomato.dishes.length === 2, tomato ? JSON.stringify(tomato.dishes) : '');
-  const list3 = C.buildShoppingList([{ recipeId: 'C1', date: '2026-10-01' }], C.defaultState(), ingIndex, byId);
-  ok('超过 48 小时的菜单不进清单', list3.toBuy.length === 0);
+  // 超过 48 小时 = 今天往前 3 天
+  const tooOld = C.addDays(TODAY, -3);
+  const list3 = C.buildShoppingList([{ recipeId: 'C1', date: tooOld }], C.defaultState(), ingIndex, byId);
+  ok('超过 48 小时的菜单不进清单', list3.toBuy.length === 0, 'date=' + tooOld);
+  // 昨天的菜单仍应计入（1 天 ≤ 48 小时）
+  const yesterday = C.addDays(TODAY, -1);
+  const list4 = C.buildShoppingList([{ recipeId: 'C1', date: yesterday }], C.defaultState(), ingIndex, byId);
+  ok('昨天的菜单仍计入清单', list4.toBuy.length > 0, 'date=' + yesterday);
   flush();
 
   /* 9. 格式化 */

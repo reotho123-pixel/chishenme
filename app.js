@@ -187,10 +187,52 @@
   function navHTML(active) {
     var items = [['today', '今天'], ['library', '菜库'], ['pantry', '食材'], ['me', '我的']];
     return NAV_MARK +
-           '<div class="nav-outer">' + items.map(function (it) {
-             return '<div class="nav-i' + (it[0] === active ? ' on' : '') + '" data-tab="' + it[0] + '">' + it[1] + '</div>';
-           }).join('') + '</div>' +
+           '<div class="nav-outer">' +
+             '<span class="nav-pill"></span>' +
+             items.map(function (it) {
+               return '<div class="nav-i' + (it[0] === active ? ' on' : '') + '" data-tab="' + it[0] + '">' + it[1] + '</div>';
+             }).join('') +
+           '</div>' +
            NAV_MARK;
+  }
+
+  /**
+   * 把滑动胶囊对齐到当前选中的 Tab。
+   * animate=false 时（首次渲染 / 布局变化）直接落位，不做过渡。
+   */
+  function syncNavPill(animate) {
+    var outer = document.querySelector('.nav-dock .nav-outer');
+    if (!outer) return;
+    var pill = outer.querySelector('.nav-pill');
+    var on = outer.querySelector('.nav-i.on');
+    if (!pill || !on) return;
+
+    var or = outer.getBoundingClientRect();
+    var nr = on.getBoundingClientRect();
+    var w = nr.width, h = nr.height;
+    // absolute 定位的原点是 padding box（边框内侧），
+    // 而 getBoundingClientRect 给的是 border box —— 要减掉边框宽度，否则整体偏移。
+    var x = nr.left - or.left - outer.clientLeft;
+    var y = nr.top - or.top - outer.clientTop;
+
+    // 只在「首次落位」或「明确不带动画」时瞬时到位；
+    // 其余情况（切换 Tab）让 CSS 过渡把它滑过去。
+    var first = pill.dataset.placed !== '1';
+    if (first || !animate) {
+      pill.style.transition = 'none';
+      pill.style.width = w + 'px';
+      pill.style.height = h + 'px';
+      pill.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+      // 强制回流后再恢复过渡，否则这次的 none 会被下一次覆盖掉
+      void pill.offsetWidth;
+      pill.style.transition = '';
+      pill.dataset.placed = '1';
+      return;
+    }
+
+    pill.style.width = w + 'px';
+    pill.style.height = h + 'px';
+    pill.style.transform = 'translate(' + x + 'px,' + y + 'px)';
   }
 
   function stars(n, total) {
@@ -679,8 +721,11 @@
            '<div style="font-size:13px;font-weight:800;color:#111">没有符合条件的菜</div></div></div>';
     }
     if (hiddenCount) {
+      // 注意：S.view 这里可能为 null（从底部 Tab 进来时 onClick 会先把它清空），
+      // 裸访问 S.view.params 会抛异常、整页渲染中断、停在上一屏不切换。
+      var showBlocked = !!(S.view && S.view.params && S.view.params.showBlocked);
       h += '<div class="btn-sub" data-act="toggle-blocked">' +
-           (S.view.params && S.view.params.showBlocked ? '隐藏忌口冲突的菜' : '显示被隐藏的 ' + hiddenCount + ' 道') + '</div>';
+           (showBlocked ? '隐藏忌口冲突的菜' : '显示被隐藏的 ' + hiddenCount + ' 道') + '</div>';
     }
     h += navHTML('library');
     return h;
@@ -1305,21 +1350,63 @@
     return t.slice(0, 8) + '…' + t.slice(-4);
   }
 
+  // 通用内联输入弹层：prompt 在 WebView/内置浏览器里会被静默拦截（返回 null 且不显示），
+  // 所以这里不再返回值，改为打开弹层，用户点「确定」后走 opts.onOk(裁剪后的值)
   function promptInput(label, cur, opts) {
-    var v = prompt(label, cur || '');
-    return v;
+    opts = opts || {};
+    S._askInput = {
+      label: label || '',
+      value: cur || '',
+      ph: opts.placeholder || '',
+      onOk: opts.onOk || null,
+      back: S.view ? { name: S.view.name, params: S.view.params } : null
+    };
+    S.view = { name: 'askInput', params: {} };
+    render();
+  }
+
+  // 内联输入弹层（替代 prompt 的所有用法）
+  function renderAskInput() {
+    var ask = S._askInput || { label: '', value: '', ph: '' };
+    var lines = String(ask.label || '').split('\n');
+    var sub = '';
+    for (var i = 1; i < lines.length; i++) { if (sub) sub += '<br>'; sub += esc(lines[i]); }
+    var h = '';
+    h += '<div class="sheet-top"><div class="grip"></div>' +
+         '<div class="st">' + esc(lines[0] || '') + '</div>' +
+         (sub ? '<div class="st-sub">' + sub + '</div>' : '') + '</div>';
+    // 真·输入框（prompt 会被浏览器拦，这里必须用内联 input，写法同食材选择器）
+    h += '<label class="search">' +
+         '<span class="mag">🔑</span>' +
+         '<input type="text" data-ask-input="1" autocomplete="off" autocorrect="off" ' +
+         'autocapitalize="off" spellcheck="false" placeholder="' + esc(ask.ph || '') + '" ' +
+         'style="user-select:text;-webkit-user-select:text" value="' + esc(ask.value) + '">' +
+         '</label>';
+    h += '<div class="btn-main" data-act="ask-input-ok">确 定</div>';
+    h += '<div class="btn-sub" data-act="ask-input-cancel">取消</div>';
+    return sheet(h);
+  }
+
+  // 断开同步的二次确认弹层（替代 confirm；破坏性操作必须二次确认，只是换成内联弹层）
+  function renderSyncConfirm() {
+    var h = '';
+    h += '<div class="sheet-top"><div class="grip"></div><div class="st">断开同步</div></div>';
+    h += '<div class="note-mini" style="text-align:center;font-size:12px;color:#111;line-height:1.9">' +
+         '断开后这台手机不再同步，本机数据会保留。<br><br>确定？</div>';
+    h += '<div class="btn-danger" data-act="sync-disconnect-ok">断 开</div>';
+    h += '<div class="btn-sub" data-act="sync-disconnect-no">取消</div>';
+    return sheet(h);
   }
 
   /* ---------- 同步：动作实现 ---------- */
 
   function doInputToken() {
-    var cur = getToken();
-    var v = prompt('粘贴 GitHub Access Token\n（fine-grained，只授权 chishenme-data，Contents: Read and write）', cur || '');
-    if (v === null) return;
-    v = v.trim();
-    setToken(v);
-    render();
-    if (v) toast('Token 已保存，点「保存并测试连接」验证');
+    promptInput('粘贴 GitHub Access Token\n（fine-grained，只授权 chishenme-data，Contents: Read and write）',
+                getToken(), { placeholder: 'ghp_… 或 github_pat_…', onOk: function (v) {
+      setToken(v);
+      render();
+      if (v) toast('Token 已保存，点「保存并测试连接」验证');
+    } });
   }
 
   function doSyncConnect() {
@@ -1360,7 +1447,14 @@
   }
 
   function doSyncDisconnect() {
-    if (!confirm('断开后这台手机不再同步，本机数据会保留。\n\n确定？')) return;
+    // 内联二次确认替代 confirm（confirm 在 WebView 里被拦，返回 null 且不显示）
+    S._syncConfirmBack = S.view ? { name: S.view.name, params: S.view.params } : null;
+    S.view = { name: 'syncConfirm', params: {} };
+    render();
+  }
+
+  // 用户在确认弹层里点了「断 开」才真正执行
+  function doSyncDisconnectConfirm() {
     setToken('');
     if (S.state.settings) S.state.settings.sync = null;
     S._remoteShas = null;
@@ -1483,6 +1577,35 @@
   }
 
   /**
+   * 某个食材能做的菜（本地计算，不需要联网）。
+   * 返回按「能做的程度」排序：家里能做的排前，其次缺得少的。
+   */
+  function dishesUsingIngredient(ingId, opts) {
+    opts = opts || {};
+    var all = C.allRecipes(S.recipes, S.state);
+    var out = [];
+    all.forEach(function (r) {
+      var uses = r.ingredients.some(function (x) { return x.id === ingId; });
+      if (!uses) return;
+      if (C.recipeConflicts(r, S.state, S.ingIndex).length) return;   // 忌口的不推荐
+      var miss = C.recipeMissing(r, S.state, S.ingIndex);
+      out.push({
+        recipe: r,
+        missing: miss.missing,
+        canCook: miss.canCook,
+        // 除了这个食材之外还缺几样
+        missOthers: miss.missing.filter(function (x) { return x.id !== ingId; }).length
+      });
+    });
+    out.sort(function (a, b) {
+      if (a.canCook !== b.canCook) return a.canCook ? -1 : 1;
+      if (a.missOthers !== b.missOthers) return a.missOthers - b.missOthers;
+      return (a.recipe.minutes || 99) - (b.recipe.minutes || 99);
+    });
+    return out;
+  }
+
+  /**
    * 渲染食材选择弹层
    * params: { q, cat, sel: [ids], mode: 'pantry'|'form'|'diet', title }
    */
@@ -1513,12 +1636,14 @@
          '<div class="st">' + esc(title) + '</div>' +
          '<div class="st-sub">' + (sel.length ? '已选 ' + sel.length + ' 样' : '搜索或直接点选') + '</div></div>';
 
-    // 搜索框
-    h += '<div class="search" data-act="focus-ing-search">' +
+    // 真·输入框（prompt 会被浏览器拦，这里必须用内联 input）
+    h += '<label class="search">' +
          '<span class="mag">🔍</span>' +
-         '<span class="ph">' + (q ? esc(q) : '搜食材名，如「番茄」「鸡蛋」') + '</span>' +
+         '<input type="search" data-ing-input="1" autocomplete="off" ' +
+         'autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+         'placeholder="搜食材名，如「番茄」「鸡蛋」" value="' + esc(q) + '">' +
          (q ? '<span class="st" data-act="clear-ing-search">✕</span>' : '<span class="st">★</span>') +
-         '</div>';
+         '</label>';
 
     // 已选 chips（可点删）
     if (sel.length) {
@@ -1534,29 +1659,93 @@
     // 分类
     var cats = [['all','全部'],['vegetable','蔬菜'],['protein','肉蛋'],['seafood','水产'],
                 ['soy','豆制品'],['staple','主食'],['dry','干货'],['fruit','水果'],['condiment','调料']];
-    h += '<div class="filters" style="flex-wrap:wrap;gap:6px">';
+    h += '<div class="filters">';
     cats.forEach(function (c) {
       var on = cat === c[0];
       h += '<span class="fchip' + (on ? ' on' : '') + '" data-ing-cat="' + c[0] + '">' + c[1] + '</span>';
     });
     h += '</div>';
 
-    // 结果
-    var MAX = q ? 40 : 24;
-    var shown = list.slice(0, MAX);
-    if (!shown.length) {
-      h += '<div class="note-mini" style="text-align:center;padding:18px 0">' +
-           '没找到「' + esc(q) + '」<br><span style="font-size:10px">试试别的写法，比如「西红柿」或「番茄」</span></div>';
+    // ---- 搜索结果：先给「能做这些菜」，再给食材列表 ----
+    if (q) {
+      // 命中唯一食材时，直接展开它能做的菜
+      var exact = list.filter(function (g) {
+        return g.name === q || (g.alias || []).indexOf(q) !== -1;
+      })[0];
+
+      if (exact) {
+        var dishes = dishesUsingIngredient(exact.id);
+        var cookable = dishes.filter(function (d) { return d.canCook; });
+        h += '<div class="ing-dishes">';
+        h += '<div class="idh">' +
+             '<span class="t">' + esc(exact.name) + ' 能做的菜</span>' +
+             '<span class="c">' + dishes.length + ' 道</span>' +
+             '<span class="u">' + (cookable.length ? '现在能做 ' + cookable.length + ' 道' : '') + '</span>' +
+             '</div>';
+        if (!dishes.length) {
+          h += '<div class="note-mini" style="text-align:center;padding:10px 0">' +
+               '菜库里还没有用「' + esc(exact.name) + '」的菜</div>';
+        } else {
+          dishes.slice(0, 12).forEach(function (d) {
+            var r = d.recipe;
+            h += '<div class="dish-mini" data-ing-dish="' + r.id + '">' +
+                 '<span class="b">' + r.emoji + '</span>' +
+                 '<div><div class="n">' + esc(r.name) +
+                 (d.canCook ? ' <span class="need" style="color:#1F6B41;background:#E4F4E9">家里能做</span>' : '') +
+                 '</div>' +
+                 '<div class="m">' + C.fmtMinutes(r.minutes) + ' · ' + C.fmtCost(r.cost) +
+                 (d.missing.length ? ' · 还缺 ' + d.missing.length + ' 样' : '') +
+                 '</div></div>' +
+                 '<span class="go">›</span></div>';
+          });
+          if (dishes.length > 12) {
+            h += '<div class="note-mini" style="text-align:center">还有 ' + (dishes.length - 12) + ' 道</div>';
+          }
+        }
+        h += '</div>';
+        var addLabel = mode === 'pantry'
+          ? '把「' + esc(exact.name) + '」加进家里有'
+          : mode === 'form'
+            ? '把「' + esc(exact.name) + '」加入菜品'
+            : '选中「' + esc(exact.name) + '」';
+        h += '<div class="btn-sub" data-act="add-this-ing" data-id="' + exact.id + '">' +
+             addLabel + '</div>';
+        h += '<div class="sec" style="margin-top:4px"><span class="t">其他食材</span></div>';
+      }
+
+      // 模糊匹配的食材列表
+      var MAX = 24;
+      var shown = list.slice(0, MAX);
+      if (!shown.length) {
+        h += '<div class="note-mini" style="text-align:center;padding:18px 0">' +
+             '没找到「' + esc(q) + '」<br><span style="font-size:10px">试试别的写法，比如「西红柿」或「番茄」</span></div>';
+      } else {
+        h += '<div class="chips">';
+        shown.forEach(function (g) {
+          var on = sel.indexOf(g.id) !== -1;
+          h += '<span class="chip' + (on ? ' on' : '') + '" data-ing-toggle="' + g.id + '">' + esc(g.name) + '</span>';
+        });
+        h += '</div>';
+        if (list.length > MAX) {
+          h += '<div class="note-mini" style="text-align:center">还有 ' + (list.length - MAX) +
+               ' 种，继续输入可以缩小范围</div>';
+        }
+      }
     } else {
+      // 无搜索词时的列表。
+      // 忌口/过敏要能选到非常用食材（香菜、苦瓜、内脏…），所以这个模式不截断；
+      // 食材页只会往里加东西，给常用 24 个就够，避免一屏铺满。
+      var cap = (mode === 'memberField') ? list.length : 24;
+      var shown2 = list.slice(0, cap);
       h += '<div class="chips">';
-      shown.forEach(function (g) {
+      shown2.forEach(function (g) {
         var on = sel.indexOf(g.id) !== -1;
         h += '<span class="chip' + (on ? ' on' : '') + '" data-ing-toggle="' + g.id + '">' + esc(g.name) + '</span>';
       });
       h += '</div>';
-      if (list.length > MAX) {
-        h += '<div class="note-mini" style="text-align:center">还有 ' + (list.length - MAX) +
-             ' 种，继续输入可以缩小范围</div>';
+      if (list.length > cap) {
+        h += '<div class="note-mini" style="text-align:center">还有 ' + (list.length - cap) +
+             ' 种，输个关键词更快找到</div>';
       }
     }
 
@@ -1565,6 +1754,8 @@
       h += '<div class="btn-main" data-act="ing-done">完 成（' + sel.length + ' 样）</div>';
     } else if (mode === 'form') {
       h += '<div class="btn-main" data-act="ing-done">加 入 菜 品</div>';
+    } else if (mode === 'memberField') {
+      h += '<div class="btn-main" data-act="ing-done">确 定（已选 ' + sel.length + ' 样）</div>';
     } else if (mode === 'diet') {
       h += '<div class="btn-main" data-act="ing-done">确 定</div>';
     }
@@ -1612,20 +1803,26 @@
   function editDraftField(field) {
     if (!S._draft) return;
     if (field === 'name') {
-      var v = prompt('菜名', S._draft.name || '');
-      if (v === null) return;
-      if (!v.trim()) { toast('菜名不能为空'); return; }
-      S._draft.name = v.trim();
+      promptInput('菜名', S._draft.name || '', { onOk: function (v) {
+        if (!v.trim()) { toast('菜名不能为空'); return; }
+        S._draft.name = v.trim();
+        render();
+      } });
+      return;
     } else if (field === 'minutes') {
-      var m = prompt('耗时（分钟，1–240）', String(S._draft.minutes || 20));
-      if (m === null) return;
-      var n = parseInt(m, 10);
-      if (!n || n < 1 || n > 240) { toast('请输入 1–240 之间的整数'); return; }
-      S._draft.minutes = n;
+      promptInput('耗时（分钟，1–240）', String(S._draft.minutes || 20), { onOk: function (v) {
+        var n = parseInt(v, 10);
+        if (!n || n < 1 || n > 240) { toast('请输入 1–240 之间的整数'); return; }
+        S._draft.minutes = n;
+        render();
+      } });
+      return;
     } else if (field === 'tip') {
-      var t = prompt('小提示（可留空）', S._draft.tip || '');
-      if (t === null) return;
-      S._draft.tip = t.trim();
+      promptInput('小提示（可留空）', S._draft.tip || '', { onOk: function (v) {
+        S._draft.tip = v.trim();
+        render();
+      } });
+      return;
     }
     render();
   }
@@ -1643,11 +1840,10 @@
       S.state.pantry.updatedAt = new Date().toISOString();
       S.state.pantry.updatedBy = me();
       save();
-      // 弹层内不整页重绘，只更新局部，避免搜索框失焦
-      refreshIngPicker();
-      return;
     }
-    render();
+    // 所有模式都只重绘弹层内部：
+    // 走整页 render() 会把弹层连根换掉，选中状态看起来"没了"
+    refreshIngPicker();
   }
 
   function setIngCat(cat) {
@@ -1656,10 +1852,39 @@
     refreshIngPicker();
   }
 
-  // 只重绘弹层内部，保留滚动位置
-  function refreshIngPicker() {
+  // 搜索输入：直接改数据 + 局部重绘（不整页渲染，避免输入框失焦）
+  function onIngInput(val) {
+    if (!S._pick) return;
+    S._pick.q = val;
+    refreshIngPicker({ keepFocus: true });
+  }
+
+  // 「把某食材加进家里有」
+  function addThisIngredient(id) {
+    var p = S._pick;
+    if (!p) return;
+    if (p.sel.indexOf(id) === -1) p.sel.push(id);
+    if (p.mode === 'pantry') {
+      S.state.pantry.items = p.sel.slice();
+      S.state.pantry.updatedAt = new Date().toISOString();
+      S.state.pantry.updatedBy = me();
+      save();
+    }
+    var g = S.ingIndex.byId[id];
+    toast('已加「' + (g ? g.name : id) + '」');
+    refreshIngPicker({ keepFocus: true });
+  }
+
+  // 只重绘弹层内部，保留滚动位置；keepFocus 用于搜索输入时不丢焦点
+  function refreshIngPicker(opts) {
+    opts = opts || {};
     var mask = document.querySelector('.sheet-mask');
     if (!mask) { render(); return; }
+    var oldInput = mask.querySelector('[data-ing-input]');
+    var caret = null;
+    if (opts.keepFocus && oldInput && document.activeElement === oldInput) {
+      try { caret = oldInput.selectionStart; } catch (e) {}
+    }
     var wrapper = document.createElement('div');
     wrapper.innerHTML = renderIngredientPicker(S._pick);
     var newSheet = wrapper.querySelector('.sheet');
@@ -1667,6 +1892,13 @@
     var keepScroll = oldSheet ? oldSheet.scrollTop : 0;
     mask.replaceChild(newSheet, oldSheet);
     newSheet.scrollTop = keepScroll;
+    if (caret !== null) {
+      var newInput = newSheet.querySelector('[data-ing-input]');
+      if (newInput) {
+        newInput.focus();
+        try { newInput.setSelectionRange(caret, caret); } catch (e) {}
+      }
+    }
   }
 
   /* ---------- 弹层包装 ---------- */
@@ -1675,7 +1907,11 @@
   }
 
   /* ---------- 主渲染 ---------- */
-  function render() {
+  /**
+   * @param {boolean} animateNav 仅切换底部 Tab 时传 true；
+   *   其余渲染（勾选、重绘、进二级页）都不该让胶囊"滑"，直接落位即可。
+   */
+  function render(animateNav) {
     var app = document.getElementById('app');
     var h = '';
     if (S.view && S.view.name === 'vote') h = renderVote();
@@ -1686,6 +1922,10 @@
     else if (S.view && S.view.name === 'random') h = renderRandomSheet(!!S.view.params.expanded);
     else if (S.view && S.view.name === 'sync') h = renderSync();
     else if (S.view && S.view.name === 'ingPicker') h = renderIngredientPicker(S._pick);
+    else if (S.view && S.view.name === 'askInput') h = renderAskInput();
+    else if (S.view && S.view.name === 'syncConfirm') h = renderSyncConfirm();
+    else if (S.view && S.view.name === 'confirm') h = renderConfirm();
+    else if (S.view && S.view.name === 'memberEdit') h = renderMemberEdit();
     else if (S.tab === 'library') h = renderLibrary();
     else if (S.tab === 'pantry') h = renderPantry();
     else if (S.tab === 'me') h = renderMe();
@@ -1705,28 +1945,66 @@
 
     // 内容与底部导航分离：导航固定在 nav-dock，不随内容滚动
     var navHTMLPart = '';
+    var activeTab = null;
     var parts = h.split(NAV_MARK);
     if (parts.length >= 3) {
       navHTMLPart = parts[1];
       h = parts[0] + parts.slice(2).join('');
+      // 从生成好的导航里读出当前高亮项，避免另开一个变量走神
+      var mm = navHTMLPart.match(/nav-i on" data-tab="([^"]+)"/);
+      activeTab = mm ? mm[1] : null;
     }
 
     // 保留滚动位置：勾选食材、切条件会重渲染，但不能把页面弹回顶部
-    var scr = app.querySelector('.scr');
-    var keepScroll = scr ? scr.scrollTop : 0;
-
-    app.innerHTML = '<div class="phone">' +
-                      '<div class="scr">' + h + '</div>' +
-                      (navHTMLPart ? '<div class="nav-dock">' + navHTMLPart + '</div>' : '') +
-                    '</div>';
-
+    var oldScr = app.querySelector('.scr');
+    var keepScroll = oldScr ? oldScr.scrollTop : 0;
     if (S._restoreScrollTop !== undefined) {
       // 显式要求：回到顶部（如切换 Tab / 进入二级页）
       keepScroll = S._restoreScrollTop;
       S._restoreScrollTop = undefined;
     }
-    var newScr = app.querySelector('.scr');
-    if (newScr && keepScroll > 0) newScr.scrollTop = keepScroll;
+
+    // ---- 结构复用 ----
+    // 底部导航节点必须**保持同一个 DOM 元素**，否则 sliding pill 每次都是新节点、
+    // 没有"上一个位置"可滑。所以只在首次构建外壳，之后只换内容。
+    var shell = app.querySelector('.phone');
+    var scr = shell ? shell.querySelector('.scr') : null;
+    var dock = shell ? shell.querySelector('.nav-dock') : null;
+
+    if (!shell || !scr) {
+      // 首次（或结构丢失）：整块建出来
+      app.innerHTML = '<div class="phone"><div class="scr"></div></div>';
+      shell = app.querySelector('.phone');
+      scr = shell.querySelector('.scr');
+      dock = null;
+    }
+
+    var needDock = !!navHTMLPart;
+    if (needDock && !dock) {
+      dock = document.createElement('div');
+      dock.className = 'nav-dock';
+      dock.innerHTML = navHTMLPart;
+      shell.appendChild(dock);
+    } else if (!needDock && dock) {
+      dock.parentNode.removeChild(dock);
+      dock = null;
+    }
+
+    // 内容
+    scr.innerHTML = h;
+    if (keepScroll > 0) scr.scrollTop = keepScroll;
+
+    // 导航选中态：只改 class，不重建节点
+    if (dock) {
+      var navOuter = dock.querySelector('.nav-outer');
+      if (navOuter && activeTab) {
+        var cur = navOuter.querySelector('.nav-i.on');
+        if (cur && cur.dataset.tab !== activeTab) cur.classList.remove('on');
+        var want = navOuter.querySelector('.nav-i[data-tab="' + activeTab + '"]');
+        if (want) want.classList.add('on');
+      }
+      syncNavPill(animateNav);
+    }
   }
 
   /* ---------- 事件 ---------- */
@@ -1743,7 +2021,7 @@
         if (d.tab) {
           S.tab = d.tab; S.view = null;
           S._restoreScrollTop = 0;   // 切 Tab 回到顶部
-          render(); return;
+          render(true); return;      // 只有切 Tab 才让胶囊滑
         }
         if (d.vote) { setVote(d.id, d.vote); return; }
         if (d.cond) { setCond(d.cond, d.val, d.multi === '1'); return; }
@@ -1752,7 +2030,36 @@
         if (d.check) { toggleCheck(d.check); return; }
         if (d.ingToggle) { toggleIngPick(d.ingToggle); return; }
         if (d.ingCat) { setIngCat(d.ingCat); return; }
+        if (d.ingDish) {
+          var pkd = S._pick;
+          if (pkd && pkd.mode === 'pantry') {
+            S.state.pantry.items = pkd.sel.slice();
+            S.state.pantry.updatedAt = new Date().toISOString();
+            S.state.pantry.updatedBy = me();
+            save();
+          }
+          S._pick = null;
+          S.view = { name: 'recipe', params: { id: d.ingDish } };
+          S._restoreScrollTop = 0;
+          render(); return;
+        }
         if (d.formEmoji) { setDraft('emoji', d.formEmoji); return; }
+        // 成员档案编辑
+        if (d.memberEmoji) {
+          if (S._memberDraft) S._memberDraft.emoji = d.memberEmoji;
+          render(); return;
+        }
+        if (d.memberDel) {
+          var parts = String(d.memberDel).split(':');
+          var fld = parts[0], iid = parts.slice(1).join(':');
+          if (S._memberDraft) {
+            var arr = String(S._memberDraft[fld] || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+            var ix = arr.indexOf(iid);
+            if (ix !== -1) arr.splice(ix, 1);
+            S._memberDraft[fld] = arr.join(',');
+          }
+          render(); return;
+        }
         if (d.formMeal) { toggleDraftMeal(d.formMeal); return; }
         if (d.formRole) { setDraft('role', d.formRole); return; }
         if (d.formTool) { toggleDraftTool(d.formTool); return; }
@@ -1783,7 +2090,85 @@
 
     switch (act) {
       case 'back': S.view = null; render(); break;
-      case 'close-sheet': if (e.target === node) { S.view = null; render(); } break;
+
+      /* ---- 内联输入弹层（替代 prompt） ---- */
+      case 'ask-input-ok': {
+        var ask = S._askInput;
+        var val = '';
+        var inp = document.querySelector('[data-ask-input]');
+        if (inp) val = inp.value;
+        S._askInput = null;
+        S.view = (ask && ask.back) || null;
+        // 先渲染回到原页面，再执行回调（回调里通常还会自己 render/save）
+        render();
+        if (ask && typeof ask.onOk === 'function') ask.onOk(String(val || ''));
+        break;
+      }
+      case 'ask-input-cancel': {
+        var ask2 = S._askInput;
+        S._askInput = null;
+        S.view = (ask2 && ask2.back) || null;
+        render();
+        break;
+      }
+
+      /* ---- 内联确认弹层（替代 confirm） ---- */
+      case 'confirm-ok': {
+        var cf = S._confirm;
+        S._confirm = null;
+        if (cf && typeof cf.onOk === 'function') cf.onOk();
+        else { S.view = (cf && cf.back) || null; render(); }
+        break;
+      }
+      case 'confirm-cancel': {
+        var cf2 = S._confirm;
+        S._confirm = null;
+        S.view = (cf2 && cf2.back) || null;
+        render();
+        break;
+      }
+
+      /* ---- 成员档案编辑 ---- */
+      case 'member-edit-back':
+        S._memberDraft = null; S._memberEditKey = null;
+        S.view = null; S.tab = 'me';
+        render(); break;
+      case 'member-edit-save':
+        saveMemberEdit(); break;
+      case 'member-add': {
+        // 复用食材选择器，选完写回草稿
+        var field = data.field;
+        S._pick = {
+          mode: 'memberField', q: '', cat: 'all', title: field === 'allergies' ? '选择过敏食材' : '选择不吃的食材',
+          sel: String((S._memberDraft || {})[field] || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean),
+          field: field
+        };
+        S.view = { name: 'ingPicker', params: {} };
+        render(); break;
+      }
+
+      case 'sync-disconnect-ok':
+        doSyncDisconnectConfirm(); break;
+      case 'sync-disconnect-no':
+        S.view = S._syncConfirmBack || { name: 'sync', params: {} };
+        S._syncConfirmBack = null;
+        render(); break;
+
+      case 'close-sheet':
+        // 点遮罩关弹层；输入/确认弹层要回到打开前的页面，其余弹层维持原行为
+        if (e.target === node) {
+          if (S.view && S.view.name === 'askInput') {
+            S.view = (S._askInput && S._askInput.back) || null;
+            S._askInput = null;
+          } else if (S.view && S.view.name === 'syncConfirm') {
+            S.view = S._syncConfirmBack || { name: 'sync', params: {} };
+            S._syncConfirmBack = null;
+          } else {
+            S.view = null;
+          }
+          render();
+        }
+        break;
       case 'random':
         S.view = { name: 'random', params: { expanded: false } }; render(); break;
       case 'expand-cond':
@@ -1828,13 +2213,24 @@
         S.view = { name: 'ingPicker', params: {} };
         render(); break;
       }
-      case 'focus-ing-search': {
-        var v = prompt('搜索食材（可输入菜名或别名，如「西红柿」）', (S._pick && S._pick.q) || '');
-        if (v !== null) { S._pick.q = v; render(); }
-        break;
-      }
       case 'clear-ing-search':
         S._pick.q = ''; refreshIngPicker(); break;
+      case 'add-this-ing':
+        addThisIngredient(data.id); break;
+      case 'ing-dish': {
+        // 点搜索结果里的菜 → 看详情（先把已选写入，避免丢改动）
+        var pk0 = S._pick;
+        if (pk0 && pk0.mode === 'pantry') {
+          S.state.pantry.items = pk0.sel.slice();
+          S.state.pantry.updatedAt = new Date().toISOString();
+          S.state.pantry.updatedBy = me();
+          save();
+        }
+        S._pick = null;
+        S.view = { name: 'recipe', params: { id: data.id } };
+        S._restoreScrollTop = 0;
+        render(); break;
+      }
       case 'ing-done': {
         var pk = S._pick;
         if (pk.mode === 'pantry') {
@@ -1857,6 +2253,12 @@
           S._pick = null;
           S.view = { name: 'recipeForm', params: S._formParams || {} };
           toast('加了 ' + pk.sel.length + ' 样食材');
+        } else if (pk.mode === 'memberField') {
+          // 写回成员档案草稿的那个字段
+          if (S._memberDraft) S._memberDraft[pk.field] = pk.sel.join(',');
+          S._pick = null;
+          S.view = { name: 'memberEdit' };
+          toast('选了 ' + pk.sel.length + ' 样');
         } else {
           S._pick = null;
           S.view = null; S.tab = 'pantry';
@@ -1865,8 +2267,9 @@
       }
       case 'clear-search': S.view = null; S.tab = 'library'; render(); break;
       case 'focus-search': {
-        var q = prompt('搜索菜名或食材', '');
-        if (q !== null) { S.view = { name: 'library', params: { q: q } }; S.tab = 'library'; render(); }
+        promptInput('搜索菜名或食材', '', { onOk: function (v) {
+          S.view = { name: 'library', params: { q: v } }; S.tab = 'library'; render();
+        } });
         break;
       }
       case 'submit-vote': submitVote(); break;
@@ -1895,35 +2298,68 @@
       case 'toggle-adv': S.view = { name: 'sync', params: { adv: !(S.view.params && S.view.params.adv) } }; render(); break;
       case 'input-token': doInputToken(); break;
       case 'input-owner': {
-        var v1 = promptInput('GitHub 用户名', (S.state.settings.sync || {}).owner || '');
-        if (v1 !== null && v1.trim()) {
-          var sc1 = S.state.settings.sync || { enabled: false, repo: 'chishenme-data', branch: 'main' };
-          sc1.owner = v1.trim(); saveSyncCfg(sc1);
-        }
-        render(); break;
+        // promptInput 是回调式，不再是返回值式
+        promptInput('GitHub 用户名', (S.state.settings.sync || {}).owner || '', {
+          placeholder: '自动识别',
+          onOk: function (v) {
+            if (!v.trim()) return;
+            var sc1 = S.state.settings.sync || { enabled: false, repo: 'chishenme-data', branch: 'main' };
+            sc1.owner = v.trim();
+            saveSyncCfg(sc1);
+            S.view = { name: 'sync', params: { adv: true } };
+            render();
+          }
+        });
+        break;
       }
       case 'input-repo': {
-        var v2 = promptInput('数据仓库名', (S.state.settings.sync || {}).repo || 'chishenme-data');
-        if (v2 !== null && v2.trim()) {
-          var sc2 = S.state.settings.sync || { enabled: false, owner: '', branch: 'main' };
-          sc2.repo = v2.trim(); saveSyncCfg(sc2);
-        }
-        render(); break;
+        promptInput('数据仓库名', (S.state.settings.sync || {}).repo || 'chishenme-data', {
+          placeholder: 'chishenme-data',
+          onOk: function (v) {
+            if (!v.trim()) return;
+            var sc2 = S.state.settings.sync || { enabled: false, owner: '', branch: 'main' };
+            sc2.repo = v.trim();
+            saveSyncCfg(sc2);
+            S.view = { name: 'sync', params: { adv: true } };
+            render();
+          }
+        });
+        break;
       }
       case 'input-branch': {
-        var v3 = promptInput('分支', (S.state.settings.sync || {}).branch || 'main');
-        if (v3 !== null && v3.trim()) {
-          var sc3 = S.state.settings.sync || { enabled: false, owner: '', repo: 'chishenme-data' };
-          sc3.branch = v3.trim(); saveSyncCfg(sc3);
-        }
-        render(); break;
+        promptInput('分支', (S.state.settings.sync || {}).branch || 'main', {
+          placeholder: 'main',
+          onOk: function (v) {
+            if (!v.trim()) return;
+            var sc3 = S.state.settings.sync || { enabled: false, owner: '', repo: 'chishenme-data' };
+            sc3.branch = v.trim();
+            saveSyncCfg(sc3);
+            S.view = { name: 'sync', params: { adv: true } };
+            render();
+          }
+        });
+        break;
       }
       case 'set-me': {
         S.state.me = data.id; save(); render();
         toast('这台手机是「' + memberName(data.id) + '」');
         break;
       }
-      case 'edit-member': editMember(data.id); break;
+      case 'edit-member': {
+        // 打开成员档案编辑页（替代原来四连 prompt）
+        var mk = data.id;
+        var mm = S.state.members[mk] || {};
+        S._memberEditKey = mk;
+        S._memberDraft = {
+          name: mm.name || '',
+          emoji: mm.emoji || '🙂',
+          dislikes: (mm.dislikes || []).join(','),
+          allergies: (mm.allergies || []).join(',')
+        };
+        S.view = { name: 'memberEdit' };
+        S._restoreScrollTop = 0;
+        render(); break;
+      }
       case 'edit-staple': toast('常备调料管理：下一版接入'); break;
       case 'toast-action': if (S.toast && S.toast.action) S.toast.action(); S.toast = null; render(); break;
       case 'save-recipe': saveRecipeForm(); break;
@@ -2118,16 +2554,28 @@
       if (!f) return;
       var rd = new FileReader();
       rd.onload = function () {
+        var obj = null;
         try {
-          var obj = JSON.parse(rd.result);
+          obj = JSON.parse(rd.result);
           if (!obj || !obj.members) throw new Error('缺 members');
-          if (!confirm('导入将覆盖当前全部数据，确定继续？')) return;
-          S.state = migrate(obj);
-          save();
-          toast('导入成功');
         } catch (e) {
-          alert('文件格式不正确，请选择「待会吃什么」导出的备份文件');
+          toast('文件格式不正确，请选择「待会吃什么」导出的备份文件');
+          return;
         }
+        // 二次确认用内联层
+        askConfirm({
+          title: '导入备份',
+          body: '导入将覆盖当前全部数据，确定继续？',
+          okLabel: '导 入',
+          danger: true,
+          onOk: function () {
+            S.state = migrate(obj);
+            save();
+            S.view = null; S.tab = 'today';
+            render();
+            toast('导入成功');
+          }
+        });
       };
       rd.readAsText(f);
     };
@@ -2135,30 +2583,146 @@
   }
 
   function doClear() {
-    if (!confirm('清空后所有菜单、历史、忌口设置都会删除，且无法恢复。\n\n确定要继续吗？')) return;
-    if (!confirm('再确认一次：真的要清空所有数据吗？')) return;
-    S.state = C.defaultState();
-    save();
-    S.view = null; S.tab = 'today';
-    toast('已清空');
+    // 清空是破坏性操作，保留两级确认（原来靠两个 confirm，现在都是内联层）
+    askConfirm({
+      title: '清空所有数据',
+      body: '清空后所有菜单、历史、忌口设置都会删除，且无法恢复。\n\n确定要继续吗？',
+      okLabel: '继 续',
+      danger: true,
+      onOk: function () {
+        // 第二级
+        S._confirm = null;
+        askConfirm({
+          title: '再确认一次',
+          body: '真的要清空所有数据吗？',
+          okLabel: '确认清空',
+          danger: true,
+          onOk: function () {
+            S.state = C.defaultState();
+            save();
+            S._confirm = null;
+            S.view = null; S.tab = 'today';
+            render();
+            toast('已清空');
+          }
+        });
+      }
+    });
   }
 
-  function editMember(key) {
+  /**
+   * 成员档案编辑器（内联页，替代原来「名字 → 头像 → 忌口 → 过敏原」四连 prompt）。
+   * 原来四个 prompt 串在一个回调链里，任一被拦（返回 null）整条链就断，什么都存不下。
+   */
+  function renderMemberEdit() {
+    var key = S._memberEditKey;
+    var m = (S.state.members || {})[key] || {};
+    var d = S._memberDraft || { name: '', emoji: '🙂', dislikes: '', allergies: '' };
+    var EMOJIS = ['🙂','🌸','🐱','🐻','🍀','⭐','🌙','🍎','🐧','🐰','🌿','☀️'];
+
+    var h = '';
+    h += '<div class="bar"><div class="back" data-act="member-edit-back">←</div><div>' +
+         '<div class="ttl">编辑资料</div>' +
+         '<div class="sub2">' + (key === S.state.me ? '这台手机的使用者' : '对方') + '</div></div></div>';
+
+    h += '<div class="card"><div class="cbody"><div class="chead"><span class="nm">名字</span></div>';
+    h += '<div class="frow"><span class="fl">叫法</span>' +
+         '<input class="input" style="margin-left:auto;width:170px" data-member-field="name" ' +
+         'maxlength="6" value="' + esc(d.name) + '" placeholder="1–6 个字"></div>';
+    h += '</div></div>';
+
+    h += '<div class="card"><div class="cbody"><div class="chead"><span class="nm">头像</span></div>';
+    h += '<div class="emogrid" style="width:100%;grid-template-columns:repeat(6,1fr)">' +
+         EMOJIS.map(function (e) {
+           return '<span class="emo' + (d.emoji === e ? ' on' : '') + '" data-member-emoji="' + e + '">' + e + '</span>';
+         }).join('') + '</div>';
+    h += '</div></div>';
+
+    h += '<div class="card"><div class="cbody"><div class="chead"><span class="nm">忌口与过敏</span>' +
+         '<span class="mt">按食材填</span></div>';
+    h += '<div class="note-mini" style="padding:0 0 9px">点下面的按钮从食材库里选，比手打名字可靠。</div>';
+    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px">' +
+         '<span class="fl" style="flex:none">🙅 不吃</span>' +
+         memberChips(d.dislikes, 'dislikes', '不吃') + '</div>';
+    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px">' +
+         '<span class="fl" style="flex:none">🚨 过敏</span>' +
+         memberChips(d.allergies, 'allergies', '过敏') + '</div>';
+    h += '</div></div>';
+
+    h += '<div class="note-mini">忌口和过敏的菜不会出现在随机结果里。过敏永远过滤，不吃可以临时放宽。</div>';
+
+    h += '<div class="btn-main" data-act="member-edit-save">保 存</div>';
+    h += '<div class="btn-sub" data-act="member-edit-back">取消</div>';
+    return h;
+  }
+
+  // 已选的忌口/过敏食材 chips + 「添加」按钮
+  function memberChips(csv, field, label) {
+    var ids = String(csv || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var h = '<span class="chips">';
+    ids.forEach(function (id) {
+      var g = S.ingIndex.byId[id];
+      h += '<span class="chip on" data-member-del="' + field + ':' + esc(id) + '">' +
+           esc(g ? g.name : id) + ' ✕</span>';
+    });
+    h += '<span class="chip" data-act="member-add" data-field="' + field + '">＋ 添加</span>';
+    h += '</span>';
+    return h;
+  }
+
+  function saveMemberEdit() {
+    var key = S._memberEditKey;
+    var d = S._memberDraft;
+    if (!key || !d) return;
     var m = S.state.members[key];
-    var name = prompt('名字', m.name);
-    if (name === null) return;
-    var emoji = prompt('头像 emoji（如 🙂 🌸 🐱 🐻 🍀 ⭐）', m.emoji || '🙂');
-    if (emoji === null) return;
-    var dislikes = prompt('忌口食材的 id，用逗号分隔\n（例：cilantro 香菜、bitter-melon 苦瓜）', (m.dislikes || []).join(','));
-    if (dislikes === null) return;
-    var allergies = prompt('过敏原，用逗号分隔\n（可选：egg 蛋 / crustacean 甲壳类 / oyster 蚝类 / clam 蛤类 / fish 鱼 / peanut 花生 / gluten 麸质 / dairy 奶 / soy 大豆 / sesame 芝麻）', (m.allergies || []).join(','));
-    if (allergies === null) return;
-    m.name = name.trim() || m.name;
-    m.emoji = emoji.trim() || m.emoji;
-    m.dislikes = dislikes.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-    m.allergies = allergies.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!m) return;
+    var name = String(d.name || '').trim();
+    if (!name) { toast('名字不能为空'); return; }
+    m.name = name;
+    m.emoji = d.emoji || m.emoji;
+    m.dislikes = String(d.dislikes || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    m.allergies = String(d.allergies || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     save();
+    S._memberDraft = null; S._memberEditKey = null;
+    S.view = null; S.tab = 'me';
+    render();
     toast('已保存');
+  }
+
+  /**
+   * 通用内联确认层（替代 confirm）。
+   * confirm 在 WebView/内置浏览器里会被静默拦截（返回 null 且不显示），
+   * 用它的破坏性操作（清空、导入、删除）会变成「点了没反应」。
+   * 用法：askConfirm({ title, body, okLabel, danger, onOk })
+   */
+  function askConfirm(opts) {
+    opts = opts || {};
+    S._confirm = {
+      title: opts.title || '确定吗？',
+      body: opts.body || '',
+      okLabel: opts.okLabel || '确 定',
+      cancelLabel: opts.cancelLabel || '取消',
+      danger: !!opts.danger,
+      onOk: opts.onOk || null,
+      back: S.view ? { name: S.view.name, params: S.view.params } : null
+    };
+    S.view = { name: 'confirm' };
+    render();
+  }
+
+  function renderConfirm() {
+    var c = S._confirm || { title: '', body: '', okLabel: '确 定' };
+    var h = '';
+    h += '<div class="sheet-top"><div class="grip"></div>' +
+         '<div class="st">' + esc(c.title) + '</div></div>';
+    if (c.body) {
+      h += '<div class="note-mini" style="text-align:center;font-size:12px;color:#111;line-height:1.9">' +
+           c.body.split('\n').map(esc).join('<br>') + '</div>';
+    }
+    h += '<div class="' + (c.danger ? 'btn-danger' : 'btn-main') + '" data-act="confirm-ok">' +
+         esc(c.okLabel) + '</div>';
+    h += '<div class="btn-sub" data-act="confirm-cancel">' + esc(c.cancelLabel) + '</div>';
+    return sheet(h);
   }
 
   function saveRecipeForm() {
@@ -2203,25 +2767,42 @@
   }
 
   function resetRecipe(id) {
-    if (!confirm('恢复成内置菜的原样？你做的修改会丢失。')) return;
-    delete S.state.recipeOverrides[id];
-    save();
-    toast('已恢复默认');
-    render();
+    askConfirm({
+      title: '恢复默认',
+      body: '恢复成内置菜的原样？你做的修改会丢失。',
+      okLabel: '恢 复',
+      danger: true,
+      onOk: function () {
+        delete S.state.recipeOverrides[id];
+        save();
+        S._confirm = null;
+        S.view = { name: 'recipe', params: { id: id } };
+        render();
+        toast('已恢复默认');
+      }
+    });
   }
 
   function deleteRecipe(id) {
     var r = recipe(id);
     if (!r) return;
     var times = (S.state.doneLog || []).filter(function (x) { return x.recipeId === id; }).length;
-    if (!confirm('删除「' + r.name + '」？\n\n' + (times ? '这道菜的 ' + times + ' 次历史记录会一并删除，' : '') + '无法恢复。')) return;
-    S.state.customRecipes = S.state.customRecipes.filter(function (x) { return x.id !== id; });
-    S.state.doneLog = S.state.doneLog.filter(function (x) { return x.recipeId !== id; });
-    S.state.tonight = S.state.tonight.filter(function (x) { return x.recipeId !== id; });
-    save();
-    toast('已删除');
-    S.view = null; S.tab = 'library';
-    render();
+    askConfirm({
+      title: '删除「' + r.name + '」？',
+      body: (times ? '这道菜的 ' + times + ' 次历史记录会一并删除，' : '') + '无法恢复。',
+      okLabel: '删 除',
+      danger: true,
+      onOk: function () {
+        S.state.customRecipes = S.state.customRecipes.filter(function (x) { return x.id !== id; });
+        S.state.doneLog = S.state.doneLog.filter(function (x) { return x.recipeId !== id; });
+        S.state.tonight = S.state.tonight.filter(function (x) { return x.recipeId !== id; });
+        save();
+        S._confirm = null;
+        S.view = null; S.tab = 'library';
+        render();
+        toast('已删除');
+      }
+    });
   }
 
   /* ---------- 启动 ---------- */
@@ -2261,7 +2842,36 @@
       cleanupTonight();
       render();
       document.addEventListener('click', onClick);
+      // 食材搜索用真实 input 元素（prompt 会被部分浏览器拦掉）
+      document.addEventListener('input', function (e) {
+        var t = e.target;
+        if (t && t.dataset) {
+          if (t.dataset.ingInput) onIngInput(t.value);
+          // 成员档案编辑页的名字输入：写回草稿，不重渲染（避免输入时失焦）
+          if (t.dataset.memberField === 'name' && S._memberDraft) {
+            S._memberDraft.name = t.value;
+          }
+        }
+      });
+      // 回车收起键盘
+      document.addEventListener('keydown', function (e) {
+        var t = e.target;
+        if (t && t.dataset && t.dataset.ingInput && e.key === 'Enter') {
+          e.preventDefault();
+          t.blur();
+        }
+      });
       registerSW();
+
+      // 视口变化（横竖屏切换、桌面端拉伸）后胶囊必须重新量尺寸对齐
+      var reflowT = null;
+      function onResize() {
+        clearTimeout(reflowT);
+        reflowT = setTimeout(function () { syncNavPill(false); }, 80);
+      }
+      window.addEventListener('resize', onResize);
+      window.addEventListener('orientationchange', onResize);
+      // 导航节点是 render() 里懒创建的，由那边的 ResizeObserver 兜底尺寸变化
 
       // 同步：启动时拉一次，并在页面重新可见时刷新
       S.syncReady = true;

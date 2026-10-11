@@ -242,12 +242,33 @@ hr.dash{border:none;border-top:2.5px dashed #D8D8D8;margin:0 0 11px}
 .dc-row .nm{font-size:12.5px;font-weight:800;color:#fff}
 .dc-row .tm{font-size:11px;font-weight:700;color:#8C8C8C;margin-left:auto}
 
-/* ---------- 底部导航（分段胶囊） ---------- */
-.nav-outer{margin:6px 0 0;background:#F2ECE8;border:3px solid #111;border-radius:999px;
-  padding:6px;display:flex;gap:5px;box-shadow:4px 4px 0 #111}
-.nav-i{flex:1;text-align:center;padding:10px 0;border-radius:999px;font-size:12.5px;
-  font-weight:800;color:#6B5A50;letter-spacing:.3px;cursor:pointer}
-.nav-i.on{background:#141414;color:#fff}
+/* ---------- 底部导航（分段胶囊 + 滑动选中块） ---------- */
+.nav-outer{
+  position:relative;margin:6px 0 0;background:#F2ECE8;
+  border:3px solid #111;border-radius:999px;padding:6px;
+  display:flex;gap:5px;box-shadow:4px 4px 0 #111;
+}
+/* 滑动胶囊：绝对值定位，位置/尺寸由 JS 量出后动画过去 */
+.nav-pill{
+  position:absolute;left:0;top:0;width:0;height:0;
+  background:#141414;border-radius:999px;
+  pointer-events:none;z-index:0;
+  transition:transform .3s cubic-bezier(.34,1.15,.64,1),
+             width .3s cubic-bezier(.34,1.15,.64,1),
+             height .3s cubic-bezier(.34,1.15,.64,1);
+}
+.nav-i{
+  position:relative;z-index:1;
+  flex:1;text-align:center;padding:10px 0;border-radius:999px;
+  font-size:12.5px;font-weight:800;color:#6B5A50;letter-spacing:.3px;
+  cursor:pointer;
+  transition:color .22s ease;
+}
+.nav-i.on{color:#fff}
+/* 减弱动效偏好：直接跳，不做滑动 */
+@media(prefers-reduced-motion:reduce){
+  .nav-pill{transition:none}
+}
 
 /* ---------- 标题行 ---------- */
 .bar{display:flex;align-items:center;gap:10px;padding:0 3px}
@@ -497,6 +518,48 @@ hr.dash{border:none;border-top:2.5px dashed #D8D8D8;margin:0 0 11px}
 /* 结果区 */
 .sheet .chips{gap:7px}
 .sheet .chip{cursor:pointer}
+
+/* 真·输入框（不能用 prompt，弹窗会被浏览器拦） */
+.search input{
+  flex:1;min-width:0;border:none;outline:none;background:transparent;
+  font-family:inherit;font-size:12.5px;font-weight:700;color:#fff;
+  padding:0;
+}
+.search input::placeholder{color:#9A9A9A;font-weight:700}
+.search input::-webkit-search-cancel-button{display:none}
+
+/* 搜索结果：这个食材能做的菜 */
+.ing-dishes{margin-top:2px}
+.ing-dishes .idh{
+  display:flex;align-items:center;gap:7px;padding:0 3px;margin-bottom:8px;
+}
+.ing-dishes .idh .t{font-size:12.5px;font-weight:900;color:#111}
+.ing-dishes .idh .c{
+  font-size:10.5px;font-weight:800;background:#F7C8D4;border:2px solid #111;
+  border-radius:8px;padding:2px 7px;
+}
+.ing-dishes .idh .u{
+  margin-left:auto;font-size:10px;font-weight:700;color:#8A8A8A;
+}
+.dish-mini{
+  display:flex;align-items:center;gap:9px;background:#fff;
+  border:2.5px solid #111;border-radius:14px;padding:9px 11px;
+  box-shadow:2.5px 2.5px 0 #111;margin-bottom:7px;cursor:pointer;
+}
+.dish-mini:active{transform:translate(2px,2px);box-shadow:none}
+.dish-mini .b{
+  width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:#F7C8D4;
+  border:2.5px solid #111;display:grid;place-items:center;font-size:15px;
+}
+.dish-mini .n{font-size:12.5px;font-weight:800;color:#111}
+.dish-mini .m{font-size:10.5px;font-weight:700;color:#7A7A7A;margin-top:2px}
+.dish-mini .need{
+  font-size:9.5px;font-weight:800;color:#B33A16;background:#FDEBF0;
+  border-radius:6px;padding:2px 6px;margin-left:6px;
+}
+.dish-mini .go{
+  margin-left:auto;font-size:13px;color:#8A8A8A;
+}
 
 /* ---------- 同步状态细条 ---------- */
 .sync-bar{
