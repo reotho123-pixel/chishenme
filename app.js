@@ -2967,6 +2967,25 @@
     else window.addEventListener('load', doRegister);
   }
 
+  /* 禁掉双指捏合缩放。
+     加进主屏后如果还能捏小，露出的就是白色背景，看着像网页而不是 App。
+     viewport 里的 user-scalable=no 在 iOS 上基本被忽略，所以这层拦截才算数：
+       - gesturestart / gesturechange / gestureend 是 iOS Safari 专有事件
+       - touchmove 里判断多指兜底（某些 WebView 不发 gesture 事件）
+     注意两件事：
+       1. 双击放大交给 CSS 的 touch-action:manipulation，**不能**在 touchend 里
+          preventDefault —— 那会把后续 click 一起吃掉，所有按钮都点不动。
+       2. iOS「辅助功能 → 缩放」的三指手势是系统级，网页拦不住也不该拦。 */
+  function lockZoom() {
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
+      document.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+    });
+    // 多指触摸时直接不让它走（单指照常滚动，别误伤）
+    document.addEventListener('touchmove', function (e) {
+      if (e.touches && e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+  }
+
   function boot() {
     Promise.all([
       fetch('data/ingredients.json').then(function (r) { return r.json(); }),
@@ -3045,6 +3064,9 @@
         '<div style="font-size:12px;color:#888">' + esc(e.message) + '</div></div>';
     });
   }
+
+  // 缩放锁要在页面一可交互就生效，不能等数据加载完（那时候用户已经在捏了）
+  lockZoom();
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

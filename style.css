@@ -4,12 +4,18 @@
    ============================================================ */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+/* 禁止双指捏合缩放 / 双击放大。
+   viewport 里的 maximum-scale/user-scalable 在 iOS 上会被忽略（无障碍考虑），
+   真正管用的是 touch-action + 下面 app.js 里的 gesture 事件拦截。 */
+html,body{touch-action:pan-x pan-y;overscroll-behavior:none}
 body{
   font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
   background:#E9EAEE;color:#222;-webkit-font-smoothing:antialiased;
   overscroll-behavior-y:none;
 }
 button{font-family:inherit}
+/* 双击放大交给这里管（不要用 touchend preventDefault，那会吃掉 click） */
+button,[data-act],.chip,.fchip,.nav-i,.btn-main,.btn-sub{touch-action:manipulation}
 
 /* 手机壳：内容区独立滚动 + 底部导航固定（不随内容滚走） */
 #app{height:100%;display:flex;justify-content:center;padding:0}
