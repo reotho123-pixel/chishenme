@@ -2,7 +2,12 @@
    待会吃什么 · Service Worker
    改代码后请把下面的 CACHE 版本号 +1，已安装用户才会拿到新版
    ============================================================ */
-const CACHE = 'chishenme-v8';
+const CACHE = 'chishenme-v9';
+
+// 这些是"代码/数据"，必须优先走网络：
+// 用 stale-while-revalidate 的话，改完代码第一次打开还是旧的（要让用户刷两次），
+// 看起来就像"修复没生效"。网络失败时再退回缓存，离线照样能用。
+const FRESH_FIRST = /\.(?:js|css|json)$/i;
 
 const ASSETS = [
   './',
@@ -45,6 +50,22 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // 只处理同源请求；GitHub API 等跨域请求直接放行
   if (url.origin !== self.location.origin) return;
+
+  // 代码/数据：网络优先，拿不到再用缓存（离线兜底）
+  if (FRESH_FIRST.test(url.pathname)) {
+    e.respondWith(
+      fetch(req).then((res) => {
+        if (res && res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
+        return res;
+      }).catch(() => caches.match(req).then((hit) => hit || new Response(
+        '离线中', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+      )))
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(req).then((hit) => {
