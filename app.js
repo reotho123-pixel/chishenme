@@ -2928,15 +2928,34 @@
   function registerSW() {
     if (!('serviceWorker' in navigator)) return;
     if (location.protocol === 'file:') return;
+
+    // 新版本装好后自动重载一次，让用户立刻用上新的。
+    // 否则用户会一直跑旧代码，报的 bug 其实早就修好了（这坑踩过好几次）。
+    // 但正打字的时候不能刷，会把人正在输入的内容冲掉。
+    var reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (reloading) return;
+      var ae = document.activeElement;
+      var typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
+      var sheetOpen = !!document.querySelector('.sheet-host .sheet');
+      if (typing || sheetOpen) return;   // 让用户先把这一步做完
+      reloading = true;
+      location.reload();
+    });
+
     // boot() 可能在 load 之后才跑，所以不能无条件等 load 事件
     function doRegister() {
       navigator.serviceWorker.register('sw.js').then(function (reg) {
+        // 每次打开都查一下有没有新版
+        reg.update().catch(function () {});
         reg.addEventListener('updatefound', function () {
           var sw = reg.installing;
           if (!sw) return;
           sw.addEventListener('statechange', function () {
+            // installed + 已有 controller = 这是更新（不是首次安装）
             if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-              toast('有新版本了，下次打开生效');
+              // 让新 SW 立刻接管，上面的 controllerchange 会负责重载
+              sw.postMessage('skipWaiting');
             }
           });
         });

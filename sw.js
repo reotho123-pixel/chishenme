@@ -2,12 +2,7 @@
    待会吃什么 · Service Worker
    改代码后请把下面的 CACHE 版本号 +1，已安装用户才会拿到新版
    ============================================================ */
-const CACHE = 'chishenme-v9';
-
-// 这些是"代码/数据"，必须优先走网络：
-// 用 stale-while-revalidate 的话，改完代码第一次打开还是旧的（要让用户刷两次），
-// 看起来就像"修复没生效"。网络失败时再退回缓存，离线照样能用。
-const FRESH_FIRST = /\.(?:js|css|json)$/i;
+const CACHE = 'chishenme-v10';
 
 const ASSETS = [
   './',
@@ -24,12 +19,22 @@ const ASSETS = [
   './icons/icon-512.png'
 ];
 
+// 版本变化时重新预缓存。这里必须用 cache:'reload' 绕开浏览器自己的 HTTP 缓存 ——
+// GitHub Pages 给静态资源发了 max-age=600，不绕开的话装上的还是旧文件，
+// 表现就是"改完代码上线了，用户打开还是老样子"。
+//
+// 串行抓取：并发十几个请求在弱网下容易整批失败，而这里总共也就十几KB。
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE)
-      .then((c) => c.addAll(ASSETS))
-      .then(() => self.skipWaiting())
-      .catch((err) => console.warn('[sw] 预缓存部分失败', err))
+    caches.open(CACHE).then((c) => {
+      return ASSETS.reduce((chain, url) => {
+        return chain.then(() =>
+          fetch(url, { cache: 'reload' }).then((res) => {
+            if (res && res.ok) return c.put(url, res);
+          }).catch(() => { /* 单个失败不影响整体，运行时还能走网络 */ })
+        );
+      }, Promise.resolve());
+    }).then(() => self.skipWaiting())
   );
 });
 
@@ -51,31 +56,9 @@ self.addEventListener('fetch', (e) => {
   // 只处理同源请求；GitHub API 等跨域请求直接放行
   if (url.origin !== self.location.origin) return;
 
-  // 代码/数据：网络优先，拿不到再用缓存（离线兜底）
-  if (FRESH_FIRST.test(url.pathname)) {
-    e.respondWith(
-      fetch(req).then((res) => {
-        if (res && res.ok && res.type === 'basic') {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-        }
-        return res;
-      }).catch(() => caches.match(req).then((hit) => hit || new Response(
-        '离线中', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
-      )))
-    );
-    return;
-  }
-
   e.respondWith(
     caches.match(req).then((hit) => {
-      if (hit) {
-        // 命中缓存：后台顺便更新一次（stale-while-revalidate）
-        fetch(req).then((res) => {
-          if (res && res.ok) caches.open(CACHE).then((c) => c.put(req, res.clone()));
-        }).catch(() => {});
-        return hit;
-      }
+      if (hit) return hit;   // 预缓存已是当次版本的内容，直接用
       return fetch(req).then((res) => {
         if (res && res.ok && res.type === 'basic') {
           const copy = res.clone();
