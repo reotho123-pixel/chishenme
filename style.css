@@ -465,6 +465,15 @@ hr.dash{border:none;border-top:2.5px dashed #D8D8D8;margin:0 0 11px}
 .dot-live{width:9px;height:9px;border-radius:50%;background:#2F9E63;border:2px solid #111;flex:0 0 9px}
 
 /* ---------- 弹层 ---------- */
+/* 弹层宿主：独立于 .scr，整页重渲染不会碰它（否则打字时输入框会被换掉、入场动画还会重播）。
+   宿主本身不设定位/尺寸：.sheet-mask 是 fixed，照旧覆盖全屏、照旧在根层叠里跟其他 fixed 比 z-index。 */
+.sheet-host{display:block}
+/* 分区渲染后会出现内容为空的区块（如没选任何食材时的 chips），别让 flex 的 gap 多留一条缝 */
+.sheet [data-pk]:empty{display:none}
+/* 结果区和底部按钮各自成组，组内沿用 .sheet 原本的 13px 间距，
+   这样拆分区之后纵向节奏跟拆分前一模一样 */
+.sheet [data-pk="body"],
+.sheet [data-pk="foot"]{display:flex;flex-direction:column;gap:13px}
 .sheet-mask{position:fixed;inset:0;background:rgba(20,20,20,.42);z-index:50;
   display:flex;align-items:flex-end;justify-content:center;padding:0}
 .sheet{width:100%;max-width:480px;max-height:92vh;overflow-y:auto;

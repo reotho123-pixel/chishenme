@@ -184,6 +184,24 @@
   // 底部导航用标记包起来，render() 会把它抽出来放进固定的 nav-dock
   var NAV_MARK = '<!--__NAV__-->';
 
+  // 弹层同理：抽出来放进固定的 .sheet-host。
+  // 放在 .scr 里会被整页重渲染顺带重建 —— 那会打断打字、还会让入场动画重播（看起来"一直在跳"）。
+  var SHEET_MARK = '<!--__SHEET__-->';
+
+  // 中文输入法正在拼字。拼字期间不能去动 input.value，否则候选会被打断。
+  var ingComposing = false;
+
+  // 弹层"身份"：相同就不重建 DOM。
+  // 只给带输入框的弹层签名 —— 它们的输入框节点必须活着。
+  // 其余弹层（确认、随机）内容依赖状态，每次重绘一遍最省心，也没有焦点可丢。
+  function sheetSig() {
+    var v = S.view;
+    if (!v) return '';
+    if (v.name === 'ingPicker') return 'ingPicker:' + (S._pickSeq || 0);
+    if (v.name === 'askInput') return 'askInput:' + (S._askSeq || 0);
+    return '';
+  }
+
   function navHTML(active) {
     var items = [['today', '今天'], ['library', '菜库'], ['pantry', '食材'], ['me', '我的']];
     return NAV_MARK +
@@ -1361,6 +1379,8 @@
       onOk: opts.onOk || null,
       back: S.view ? { name: S.view.name, params: S.view.params } : null
     };
+    // 每次都是新的一次询问：换签名，逼 render() 重建弹层（否则会沿用上一个输入框里的旧值）
+    S._askSeq = (S._askSeq || 0) + 1;
     S.view = { name: 'askInput', params: {} };
     render();
   }
@@ -1607,15 +1627,76 @@
 
   /**
    * 渲染食材选择弹层
-   * params: { q, cat, sel: [ids], mode: 'pantry'|'form'|'diet', title }
+   * params: { q, cat, sel: [ids], mode, title, field }
+   *
+   * 弹层内部拆成若干 data-pk 区块：初次整块渲染，之后打字/点选只更新区块
+   * （见 refreshIngPicker）。输入框节点必须一直活着 —— 重建它就会丢焦点、
+   * 断开中文输入法的候选，界面看起来就是"一直在跳"。
    */
   function renderIngredientPicker(p) {
+    p = p || {};
+    var h = '';
+    h += '<div class="sheet-top" data-pk="top">' + pkTopInner(p) + '</div>';
+
+    // 真·输入框（prompt 会被浏览器拦，这里必须用内联 input）
+    h += '<label class="search">' +
+         '<span class="mag">🔍</span>' +
+         '<input type="search" data-ing-input="1" autocomplete="off" ' +
+         'autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+         'placeholder="搜食材名，如「番茄」「鸡蛋」" value="' + esc(p.q || '') + '">' +
+         '<span data-pk="mag">' + pkMagInner(p.q || '') + '</span>' +
+         '</label>';
+
+    h += '<div data-pk="chips">' + pkChipsInner(p) + '</div>';
+    h += '<div class="filters" data-pk="filters">' + pkFiltersInner(p) + '</div>';
+    h += '<div data-pk="body">' + pkBodyInner(p) + '</div>';
+    h += '<div data-pk="foot">' + pkFootInner(p) + '</div>';
+    return sheet(h);
+  }
+
+  function pkTopInner(p) {
+    var sel = p.sel || [];
+    return '<div class="grip"></div>' +
+           '<div class="st">' + esc(p.title || '添加食材') + '</div>' +
+           '<div class="st-sub">' + (sel.length ? '已选 ' + sel.length + ' 样' : '搜索或直接点选') + '</div>';
+  }
+
+  function pkMagInner(q) {
+    return q ? '<span class="st" data-act="clear-ing-search">✕</span>'
+             : '<span class="st">★</span>';
+  }
+
+  // 已选 chips（可点删）
+  function pkChipsInner(p) {
+    var sel = p.sel || [];
+    if (!sel.length) return '';
+    var h = '<div class="chips" style="margin-top:-2px">';
+    sel.forEach(function (id) {
+      var g = S.ingIndex.byId[id];
+      if (!g) return;
+      h += '<span class="chip on" data-ing-toggle="' + id + '">' + esc(g.name) + ' ✕</span>';
+    });
+    return h + '</div>';
+  }
+
+  var PK_CATS = [['all','全部'],['vegetable','蔬菜'],['protein','肉蛋'],['seafood','水产'],
+                 ['soy','豆制品'],['staple','主食'],['dry','干货'],['fruit','水果'],['condiment','调料']];
+
+  function pkFiltersInner(p) {
+    var cat = p.cat || 'all';
+    return PK_CATS.map(function (c) {
+      return '<span class="fchip' + (cat === c[0] ? ' on' : '') +
+             '" data-ing-cat="' + c[0] + '">' + c[1] + '</span>';
+    }).join('');
+  }
+
+  // 结果区：命中食材就展开「能做这些菜」，否则给食材列表
+  function pkBodyInner(p) {
     p = p || {};
     var q = p.q || '';
     var cat = p.cat || 'all';
     var sel = p.sel || [];
     var mode = p.mode || 'pantry';
-    var title = p.title || '添加食材';
 
     var list = searchIngredients(q, { excludeStaple: true });
     if (cat !== 'all') {
@@ -1632,39 +1713,6 @@
     }
 
     var h = '';
-    h += '<div class="sheet-top"><div class="grip"></div>' +
-         '<div class="st">' + esc(title) + '</div>' +
-         '<div class="st-sub">' + (sel.length ? '已选 ' + sel.length + ' 样' : '搜索或直接点选') + '</div></div>';
-
-    // 真·输入框（prompt 会被浏览器拦，这里必须用内联 input）
-    h += '<label class="search">' +
-         '<span class="mag">🔍</span>' +
-         '<input type="search" data-ing-input="1" autocomplete="off" ' +
-         'autocorrect="off" autocapitalize="off" spellcheck="false" ' +
-         'placeholder="搜食材名，如「番茄」「鸡蛋」" value="' + esc(q) + '">' +
-         (q ? '<span class="st" data-act="clear-ing-search">✕</span>' : '<span class="st">★</span>') +
-         '</label>';
-
-    // 已选 chips（可点删）
-    if (sel.length) {
-      h += '<div class="chips" style="margin-top:-2px">';
-      sel.forEach(function (id) {
-        var g = S.ingIndex.byId[id];
-        if (!g) return;
-        h += '<span class="chip on" data-ing-toggle="' + id + '">' + esc(g.name) + ' ✕</span>';
-      });
-      h += '</div>';
-    }
-
-    // 分类
-    var cats = [['all','全部'],['vegetable','蔬菜'],['protein','肉蛋'],['seafood','水产'],
-                ['soy','豆制品'],['staple','主食'],['dry','干货'],['fruit','水果'],['condiment','调料']];
-    h += '<div class="filters">';
-    cats.forEach(function (c) {
-      var on = cat === c[0];
-      h += '<span class="fchip' + (on ? ' on' : '') + '" data-ing-cat="' + c[0] + '">' + c[1] + '</span>';
-    });
-    h += '</div>';
 
     // ---- 搜索结果：先给「能做这些菜」，再给食材列表 ----
     if (q) {
@@ -1748,8 +1796,13 @@
              ' 种，输个关键词更快找到</div>';
       }
     }
+    return h;
+  }
 
-    // 底部按钮
+  function pkFootInner(p) {
+    var mode = p.mode || 'pantry';
+    var sel = p.sel || [];
+    var h = '';
     if (mode === 'pantry') {
       h += '<div class="btn-main" data-act="ing-done">完 成（' + sel.length + ' 样）</div>';
     } else if (mode === 'form') {
@@ -1760,7 +1813,7 @@
       h += '<div class="btn-main" data-act="ing-done">确 定</div>';
     }
     h += '<div class="btn-sub" data-act="close-sheet">取消</div>';
-    return sheet(h);
+    return h;
   }
 
   /* ---------- 菜品编辑：草稿操作 ---------- */
@@ -1852,11 +1905,59 @@
     refreshIngPicker();
   }
 
-  // 搜索输入：直接改数据 + 局部重绘（不整页渲染，避免输入框失焦）
+  // 搜索输入：写回数据 + 局部重绘（不整页渲染，输入框才不会失焦）
   function onIngInput(val) {
     if (!S._pick) return;
+    // 拼字中途（拼音还没变成汉字）先不动：此时 val 是 "fanqie" 这种中间态，
+    // 拿去过滤只会闪出「没找到」。等 compositionend 提交了再走一次。
+    if (ingComposing) return;
     S._pick.q = val;
-    refreshIngPicker({ keepFocus: true });
+    refreshIngPicker();
+  }
+
+  /**
+   * 重画食材弹层内部各区块，输入框节点原地不动。
+   *
+   * 这是打字能用的关键 —— 早先的实现在每次按键时 innerHTML 重建整个弹层，
+   * 输入框被换成新节点，焦点和输入法组合一起丢，表现为"完全打不了字、界面一直在跳"。
+   * 现在输入框是独立的一块，周围区块随便换都不影响它。
+   */
+  function paintIngPicker() {
+    var sheetEl = document.querySelector('.sheet-host .sheet');
+    if (!sheetEl || !S._pick) return false;
+
+    var p = S._pick;
+
+    // 输入框：用户正在里面打字时，以 DOM 为准（不写回，免得打断输入法）；
+    // 否则以数据为准（比如点了「清除搜索」）。
+    var input = sheetEl.querySelector('[data-ing-input]');
+    if (input) {
+      if (document.activeElement === input) {
+        if (!ingComposing) p.q = input.value;
+      } else if (!ingComposing && input.value !== (p.q || '')) {
+        input.value = p.q || '';
+      }
+    }
+
+    var regions = {
+      top: pkTopInner(p),
+      mag: pkMagInner(p.q || ''),
+      chips: pkChipsInner(p),
+      filters: pkFiltersInner(p),
+      body: pkBodyInner(p),
+      foot: pkFootInner(p)
+    };
+    Object.keys(regions).forEach(function (k) {
+      var el = sheetEl.querySelector('[data-pk="' + k + '"]');
+      if (!el) return;
+      if (el.innerHTML !== regions[k]) el.innerHTML = regions[k];
+    });
+    return true;
+  }
+
+  function refreshIngPicker() {
+    // 弹层不在（比如刚好被关掉）就退回整页渲染兜底
+    if (!paintIngPicker()) render();
   }
 
   // 「把某食材加进家里有」
@@ -1872,38 +1973,15 @@
     }
     var g = S.ingIndex.byId[id];
     toast('已加「' + (g ? g.name : id) + '」');
-    refreshIngPicker({ keepFocus: true });
-  }
-
-  // 只重绘弹层内部，保留滚动位置；keepFocus 用于搜索输入时不丢焦点
-  function refreshIngPicker(opts) {
-    opts = opts || {};
-    var mask = document.querySelector('.sheet-mask');
-    if (!mask) { render(); return; }
-    var oldInput = mask.querySelector('[data-ing-input]');
-    var caret = null;
-    if (opts.keepFocus && oldInput && document.activeElement === oldInput) {
-      try { caret = oldInput.selectionStart; } catch (e) {}
-    }
-    var wrapper = document.createElement('div');
-    wrapper.innerHTML = renderIngredientPicker(S._pick);
-    var newSheet = wrapper.querySelector('.sheet');
-    var oldSheet = mask.querySelector('.sheet');
-    var keepScroll = oldSheet ? oldSheet.scrollTop : 0;
-    mask.replaceChild(newSheet, oldSheet);
-    newSheet.scrollTop = keepScroll;
-    if (caret !== null) {
-      var newInput = newSheet.querySelector('[data-ing-input]');
-      if (newInput) {
-        newInput.focus();
-        try { newInput.setSelectionRange(caret, caret); } catch (e) {}
-      }
-    }
+    refreshIngPicker();
   }
 
   /* ---------- 弹层包装 ---------- */
   function sheet(inner) {
-    return '<div class="sheet-mask" data-act="close-sheet"><div class="sheet" data-stop="1">' + inner + '</div></div>';
+    return SHEET_MARK +
+           '<div class="sheet-mask" data-act="close-sheet"><div class="sheet" data-stop="1">' +
+           inner + '</div></div>' +
+           SHEET_MARK;
   }
 
   /* ---------- 主渲染 ---------- */
@@ -1955,6 +2033,14 @@
       activeTab = mm ? mm[1] : null;
     }
 
+    // 弹层同样抽出来，放进固定的 .sheet-host（不在 .scr 里，就不会被重渲染带走）
+    var sheetHTMLPart = '';
+    var sparts = h.split(SHEET_MARK);
+    if (sparts.length >= 3) {
+      sheetHTMLPart = sparts[1];
+      h = sparts[0] + sparts.slice(2).join('');
+    }
+
     // 保留滚动位置：勾选食材、切条件会重渲染，但不能把页面弹回顶部
     var oldScr = app.querySelector('.scr');
     var keepScroll = oldScr ? oldScr.scrollTop : 0;
@@ -1970,6 +2056,7 @@
     var shell = app.querySelector('.phone');
     var scr = shell ? shell.querySelector('.scr') : null;
     var dock = shell ? shell.querySelector('.nav-dock') : null;
+    var host = app.querySelector('.sheet-host');
 
     if (!shell || !scr) {
       // 首次（或结构丢失）：整块建出来
@@ -1977,6 +2064,7 @@
       shell = app.querySelector('.phone');
       scr = shell.querySelector('.scr');
       dock = null;
+      host = null;
     }
 
     var needDock = !!navHTMLPart;
@@ -1993,6 +2081,29 @@
     // 内容
     scr.innerHTML = h;
     if (keepScroll > 0) scr.scrollTop = keepScroll;
+
+    // ---- 弹层：独立宿主，不参与 .scr 的重建 ----
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'sheet-host';
+      app.appendChild(host);
+    }
+    var sig = sheetSig();
+    if (!sheetHTMLPart) {
+      // 没有弹层了：宿主清空（下次重进会走重建分支）
+      if (host.firstChild) host.innerHTML = '';
+      host.dataset.sig = '';
+    } else if (sig && host.dataset.sig === sig && host.firstChild) {
+      // 同一个带输入的弹层 → 不动它的 DOM，只把状态变化画进各区块。
+      // 输入框、光标、输入法候选全都活着，这就是能正常打字的原因。
+      paintIngPicker();
+    } else {
+      host.innerHTML = sheetHTMLPart;
+      host.dataset.sig = sig;
+      // 整块重建后要把输入框内容同步回来（例如「清除搜索」后再进）
+      var hi = host.querySelector('[data-ing-input]');
+      if (hi && S._pick) hi.value = S._pick.q || '';
+    }
 
     // 导航选中态：只改 class，不重建节点
     if (dock) {
@@ -2143,6 +2254,7 @@
           sel: String((S._memberDraft || {})[field] || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean),
           field: field
         };
+        S._pickSeq = (S._pickSeq || 0) + 1;
         S.view = { name: 'ingPicker', params: {} };
         render(); break;
       }
@@ -2210,11 +2322,17 @@
         S._pick = { mode: 'pantry', q: '', cat: 'all',
                     sel: (S.state.pantry.items || []).slice(),
                     restore: { tab: 'pantry' } };
+        S._pickSeq = (S._pickSeq || 0) + 1;   // 新的一次打开：换签名，重建输入框
         S.view = { name: 'ingPicker', params: {} };
         render(); break;
       }
-      case 'clear-ing-search':
-        S._pick.q = ''; refreshIngPicker(); break;
+      case 'clear-ing-search': {
+        S._pick.q = '';
+        // 输入框节点是长期的，清数据的同时必须把它自己的值也清掉
+        var ci = document.querySelector('.sheet-host [data-ing-input]');
+        if (ci) ci.value = '';
+        refreshIngPicker(); break;
+      }
       case 'add-this-ing':
         addThisIngredient(data.id); break;
       case 'ing-dish': {
@@ -2371,6 +2489,7 @@
           title: '添加食材'
         };
         S._formParams = S.view.params;
+        S._pickSeq = (S._pickSeq || 0) + 1;
         S.view = { name: 'ingPicker', params: {} };
         render(); break;
       }
@@ -2851,6 +2970,17 @@
           if (t.dataset.memberField === 'name' && S._memberDraft) {
             S._memberDraft.name = t.value;
           }
+        }
+      });
+      // 中文输入法拼字期间不要碰 input.value / 不要重画那些区块之外的东西。
+      // 拼字中重画列表会把候选词打断，用户感觉就是"打不了字"。
+      document.addEventListener('compositionstart', function (e) {
+        if (e.target && e.target.dataset && e.target.dataset.ingInput) ingComposing = true;
+      });
+      document.addEventListener('compositionend', function (e) {
+        if (e.target && e.target.dataset && e.target.dataset.ingInput) {
+          ingComposing = false;
+          onIngInput(e.target.value);
         }
       });
       // 回车收起键盘
