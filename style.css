@@ -51,6 +51,11 @@ button,[data-act],.chip,.fchip,.nav-i,.btn-main,.btn-sub{touch-action:manipulati
   background-size:13px 13px;
   border-top:2.5px solid #111;
 }
+/* 独立 App 模式（添加到主屏幕）：可视区已含 Home Indicator 区，
+   再加 safe-area 内边距会把任务栏顶上去，看起来"悬空一格" */
+html[data-standalone="1"] .nav-dock{
+  padding-bottom:13px;
+}
 .nav-dock .nav-outer{margin:0}
 @media(min-width:600px){
   .nav-dock{border-radius:0 0 37px 37px}
@@ -488,6 +493,8 @@ hr.dash{border:none;border-top:2.5px dashed #D8D8D8;margin:0 0 11px}
   padding:14px 17px calc(22px + env(safe-area-inset-bottom));
   display:flex;flex-direction:column;gap:13px;
   animation:slideUp .26s cubic-bezier(.22,.9,.3,1)}
+/* 独立模式同上：底部安全区已含在视口里，不再重复留白 */
+html[data-standalone="1"] .sheet{padding-bottom:22px}
 @keyframes slideUp{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
 .sheet-top{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0 4px}
 .sheet-top .grip{width:44px;height:5px;border-radius:3px;background:#C9C9C9}
