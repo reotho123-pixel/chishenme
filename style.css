@@ -8,6 +8,15 @@ html,body{height:100%}
    viewport 里的 maximum-scale/user-scalable 在 iOS 上会被忽略（无障碍考虑），
    真正管用的是 touch-action + 下面 app.js 里的 gesture 事件拦截。 */
 html,body{touch-action:pan-x pan-y;overscroll-behavior:none}
+/* 禁掉长按选中文字 / 长按弹出「拷贝·查询」气泡 / 长按元素被拎起来放大。
+   这三样是 Safari 的行为，出现在 App 里就会「一看就是网页」。
+   -webkit-touch-callout 管的正是那个气泡和"拎起来"的效果，缺它光禁 user-select 不够。
+   注意：输入框必须单独开回来（见下面 input,textarea 那条），
+   否则 token 输入框长按弹不出「粘贴」、记账输入框没法长按改字。 */
+html,body{
+  -webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;
+}
 body{
   font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
   background:#E9EAEE;color:#222;-webkit-font-smoothing:antialiased;
@@ -601,6 +610,10 @@ html[data-standalone="1"] .sheet{padding-bottom:22px}
 @keyframes toastIn{from{transform:translate(-50%,14px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 .toast .ta{color:#F7C8D4;text-decoration:underline;cursor:pointer;white-space:nowrap}
 
-/* 防止长按选中（输入除外） */
-.phone,.sheet{user-select:none}
-input,textarea{user-select:text}
+/* 输入框例外：全局禁选之后必须把输入类元素开回来，
+   否则 token 输入框长按弹不出「粘贴」、记账输入框没法长按改字。
+   (-webkit-user-select 是给旧版 iOS Safari 的) */
+input,textarea,select,[contenteditable]{
+  -webkit-user-select:text;user-select:text;
+  -webkit-touch-callout:default;
+}
