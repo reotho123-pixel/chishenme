@@ -4,6 +4,12 @@
    ============================================================ */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+/* ⚠️ html 的底色必须是白色。iOS 独立 App 模式下屏幕最顶约 47pt 是状态栏区
+   （网页渲染不进去），**系统画那条带时的取色来源之一就是 html 的底色**
+   （另一个是 theme-color）。页面本身是白底，这里也必须是白 ——
+   否则顶上会露一条异色带，看起来像背景没铺满。
+   （和熊记同一处理：那边是薄荷底，就把这三处都设成薄荷。） */
+html{background-color:#fff}
 /* 禁止双指捏合缩放 / 双击放大。
    viewport 里的 maximum-scale/user-scalable 在 iOS 上会被忽略（无障碍考虑），
    真正管用的是 touch-action + 下面 app.js 里的 gesture 事件拦截。 */
@@ -19,7 +25,9 @@ html,body{
 }
 body{
   font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
-  background:#E9EAEE;color:#222;-webkit-font-smoothing:antialiased;
+  /* 白色：和 .phone 的底色一致。原先这里是灰 #E9EAEE（配波点底的），
+     波点去掉后它会在页面边缘/状态栏那一段透出来，看起来像没铺满。 */
+  background:#fff;color:#222;-webkit-font-smoothing:antialiased;
   overscroll-behavior-y:none;
 }
 button{font-family:inherit}
