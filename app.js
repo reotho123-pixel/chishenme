@@ -429,11 +429,16 @@
     var p = C.buildPool(c, S.recipes, S.state, S.ingIndex, { today: today() });
     var h = '';
     h += '<div class="sheet-top"><div class="grip"></div><div class="st">随机选菜</div></div>';
-    // 这里原来还有两块内容，都按用户要求删掉了：
+    // 这里原来有两块内容，都按用户要求删掉了：
     //   1. 一行条件文案（「30 分钟内 · 不辣 · 排除最近 7 天」）
     //   2. 「N 道菜符合条件 / 够抽 N 道」那块 feedback
-    // 筛选偏好功能整块不要了，就不该再露出条件或数量。
-    // 只剩抽菜这一个动作。
+    // 只把「抽几道菜」留下让用户选 —— 这是唯一还想让用户控制的。
+    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px">' +
+         '<span class="fl" style="flex:none">抽几道菜</span>' +
+         '<span class="pills">' + [3, 4, 5].map(function (n) {
+           return '<span class="pill' + (c.count === n ? ' on' : '') +
+                  '" data-count="' + n + '">' + n + ' 道</span>';
+         }).join('') + '</span></div>';
     if (p.notes.length) {
       h += '<div class="note-mini">' + p.notes.map(function (n) { return esc(n.text); }).join('<br>') + '</div>';
     }
@@ -2318,6 +2323,27 @@
     }
   }
 
+  /**
+   * 滚动时把已展开的行收回去。
+   *
+   * 不这么做的话，手指在屏幕上滑动时那行会一直保持"打开"状态 ——
+   * 一列里挂着一条红色「删除」，看起来就像卡住了。
+   * 用户报告："菜库上下滑动时，删除按钮会卡 bug 显示"。
+   *
+   * 判定放在 scroll 事件里（不是 touchmove）：这样无论用什么方式滚动
+   * （手指、惯性、滚动条）都会归位。
+   */
+  var _scrollCloseTimer = null;
+  function onListScroll() {
+    if (_cd) return;              // 正在横向拖这一行时不要抢
+    if (_scrollCloseTimer) return;
+    // 小延迟：手指刚离开就滚一下也能触发，但不会在惯性滚动的每一帧里做 DOM 操作
+    _scrollCloseTimer = setTimeout(function () {
+      _scrollCloseTimer = null;
+      closeAllSwipeRows(null);
+    }, 60);
+  }
+
   /* ---------- 事件 ---------- */
   function onClick(e) {
     var t = e.target;
@@ -2374,6 +2400,8 @@
         // formCost / formDiff / formSpicy / formHealthy 处理一并去掉。
         if (d.formDelIng !== undefined) { delDraftIng(Number(d.formDelIng)); return; }
         if (d.form) { editDraftField(d.form); return; }
+        // 随机选菜：抽几道（3/4/5）—— 这是条件里唯一还让用户改的一项
+        if (d.count !== undefined) { setDrawCount(Number(d.count)); return; }
       }
       // 遇到带 data-act 的祖先就停，交给下面的分支处理
       if (d && d.act) break;
@@ -2746,8 +2774,14 @@
 
   /* ---------- 动作实现 ---------- */
 
-  // setCond / toggleCond 已随「调整条件」面板删除：没有调用方了。
-  // 选菜条件现在只读（state.lastConditions 用默认值建好后就固定）。
+  // setCond / toggleCond 已随「调整条件」面板删除。
+  // 只剩「抽几道菜」这一项还让用户改（弹层里那三个胶囊）。
+  function setDrawCount(n) {
+    if (!n) return;
+    S.state.lastConditions.count = n;
+    save();
+    render();
+  }
 
   function doDraw() {
     var c = S.state.lastConditions;
@@ -2804,7 +2838,10 @@
     if (tonightActive().length >= 3) { toast('今晚菜单已满（3 道）'); return; }
     if (addTonight(id)) {
       clearSession();
-      S.view = null; S.tab = 'today';
+      // 不再跳回今天页 —— 用户从菜库/食材/详情页点的「今晚就做它」，
+      // 就留在原地；想看他加了什么可以自己切过去。
+      S.view = null;            // 退出详情页（如果有），但保留当前 Tab
+      render();
       toast('今晚吃「' + r.name + '」');
     } else {
       toast('这道菜已经在今晚菜单里了');
@@ -3334,6 +3371,10 @@
       document.addEventListener('pointermove', onCardSwipeMove, { capture: true, passive: false });
       document.addEventListener('pointerup', onCardSwipeEnd, true);
       document.addEventListener('pointercancel', onCardSwipeEnd, true);
+
+      // 滚动时收起已展开的行：否则那条红色「删除」会一直挂在列表里，
+      // 看起来像卡住了。捕获阶段监听，滚动容器是 .scr（render 时才建）。
+      document.addEventListener('scroll', onListScroll, true);
 
       // 视口变化（横竖屏切换、桌面端拉伸）后胶囊必须重新量尺寸对齐
       var reflowT = null;
