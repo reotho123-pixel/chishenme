@@ -82,10 +82,13 @@
 
   function toast(msg, actionLabel, action) {
     S.toast = { msg: msg, actionLabel: actionLabel, action: action, at: Date.now() };
+    // 带「撤销」的提示要留久一点 —— 3 秒来不及看清再点中
+    var life = action ? 6000 : 2800;
+    S.toast.life = life;
     render();
     setTimeout(function () {
-      if (S.toast && Date.now() - S.toast.at >= 2800) { S.toast = null; render(); }
-    }, 3000);
+      if (S.toast && Date.now() - S.toast.at >= life) { S.toast = null; render(); }
+    }, life + 200);
   }
 
   /* ---------- 今晚菜单 ---------- */
@@ -320,22 +323,19 @@
     h += '<div class="bignum"><span class="n">' + poolCount(st.lastConditions) + '</span><span class="u">道可选</span></div>';
     h += '<div class="heart-arc"><i>♥</i><i>♥</i><i>♥</i><i>♥</i><i>♥</i></div>';
     h += '<div class="btn-main" data-act="random">开 始</div>';
+    // 三个次级入口都收进主卡（原来下面还单独有一排快捷按钮，功能重复，已删）
+    var shop = C.buildShoppingList(menu, st, S.ingIndex, S.recipeById);
     h += '<div class="hero-alt">' +
          '<div class="alt" data-act="pick-self">自己挑一道</div>' +
          '<div class="alt" data-act="find-by-pantry">按食材找菜</div>' +
+         '<div class="alt" data-act="go-shopping">采购清单' +
+         (shop.total ? '<span class="alt-dot">' + shop.total + '</span>' : '') +
+         '</div>' +
          '</div>';
     h += '</div></div>';
 
-    // 快捷方章
-    h += '<div class="quick">';
-    h += '<div class="qi pink" data-act="go-library"><span class="ic">📖</span><span class="lb">挑一道</span></div>';
-    h += '<div class="qi grey" data-tab="pantry"><span class="ic">🧺</span><span class="lb">按食材</span></div>';
-    var shop = C.buildShoppingList(menu, st, S.ingIndex, S.recipeById);
-    h += '<div class="qi pink" data-act="go-shopping"><span class="ic">📝</span><span class="lb">采购清单</span>' +
-         (shop.total ? '<span class="dot">' + shop.total + '</span>' : '') + '</div>';
-    // 「最近做过」快捷按钮已按用户要求删除。
-    // 今天页下方那段「最近做过」列表保留（那是另一处，用户没让删）。
-    h += '</div>';
+    // （原先卡片下方那排快捷方章「挑一道 / 按食材 / 采购清单」已删除：
+    //   前两个和卡里的按钮重复，采购清单也一并移到卡里了。）
 
     // 今晚菜单
     h += '<div class="sec" style="margin-top:4px"><span class="t">今晚菜单</span><span class="h">♡</span>' +
@@ -438,75 +438,21 @@
     var c = S.state.lastConditions;
     var p = C.buildPool(c, S.recipes, S.state, S.ingIndex, { today: today() });
     var h = '';
-    if (!expanded) {
-      h += '<div class="sheet-top"><div class="grip"></div><div class="st">随机选菜</div></div>';
-      h += '<div class="card plain"><div class="cbg"></div><div class="cbody" data-act="expand-cond" style="padding:13px 14px">' +
-           '<div style="display:flex;align-items:center;gap:9px"><div style="flex:1">' +
-           '<div style="font-size:12.5px;font-weight:900;color:#111;line-height:1.6">' + condSummary(c) + '</div>' +
-           '<div style="font-size:10.5px;font-weight:700;color:#8A8A8A;margin-top:4px">点这行可以调详细条件</div>' +
-           '</div><span style="font-size:15px;color:#111">⌄</span></div></div></div>';
-      h += '<div class="feedback"><span class="fn">' + p.afterDietCount + '</span><div>' +
-           '<div class="ft">道菜符合条件</div><div class="fs">' +
-           (p.afterDietCount >= c.count ? '够抽 ' + c.count + ' 道' : '抽不满 ' + c.count + ' 道') +
-           '</div></div></div>';
-      if (p.notes.length) {
-        h += '<div class="note-mini">' + p.notes.map(function (n) { return esc(n.text); }).join('<br>') + '</div>';
-      }
-      h += '<div class="btn-main" data-act="do-draw">🎲 抽 ' + c.count + ' 道</div>';
-      h += '<div class="btn-sub" data-act="expand-cond">调整条件 ⌄</div>';
-    } else {
-      h += '<div class="sheet-top"><div class="grip"></div><div class="st">调整条件</div></div>';
-      h += condPanel(c, p);
-      h += '<div class="feedback"><span class="fn">' + p.afterDietCount + '</span><div>' +
-           '<div class="ft">道菜符合条件</div><div class="fs">' +
-           (p.afterDietCount >= c.count ? '够抽 ' + c.count + ' 道' : '抽不满 ' + c.count + ' 道，建议放宽条件') +
-           '</div></div></div>';
-      h += '<div class="btn-main" data-act="do-draw">🎲 抽 ' + c.count + ' 道</div>';
-      h += '<div class="btn-sub" data-act="save-default">保存为默认</div>';
+    h += '<div class="sheet-top"><div class="grip"></div><div class="st">随机选菜</div></div>';
+    // 条件只做展示，不再可改（用户不需要"调整条件"这个功能）。
+    // 它仍然有用：让人知道为什么有些菜没被抽进来。
+    h += '<div class="card plain"><div class="cbg"></div><div class="cbody" style="padding:13px 14px">' +
+         '<div style="font-size:12.5px;font-weight:900;color:#111;line-height:1.6">' + condSummary(c) + '</div>' +
+         '</div></div>';
+    h += '<div class="feedback"><span class="fn">' + p.afterDietCount + '</span><div>' +
+         '<div class="ft">道菜符合条件</div><div class="fs">' +
+         (p.afterDietCount >= c.count ? '够抽 ' + c.count + ' 道' : '抽不满 ' + c.count + ' 道') +
+         '</div></div></div>';
+    if (p.notes.length) {
+      h += '<div class="note-mini">' + p.notes.map(function (n) { return esc(n.text); }).join('<br>') + '</div>';
     }
+    h += '<div class="btn-main" data-act="do-draw">🎲 抽 ' + c.count + ' 道</div>';
     return sheet(h);
-  }
-
-  function condPanel(c, p) {
-    function pills(field, opts, multi) {
-      return '<span class="pills">' + opts.map(function (o) {
-        var on = multi ? (c[field] || []).indexOf(o.v) !== -1 : c[field] === o.v;
-        return '<span class="pill' + (on ? ' on' : '') + '" data-cond="' + field + '" data-val="' + o.v + '" data-multi="' + (multi ? 1 : 0) + '">' + o.t + '</span>';
-      }).join('') + '</span>';
-    }
-    function sw(field, label) {
-      return '<div class="frow"><span class="fl">' + label + '</span>' +
-             '<span class="sw' + (c[field] ? ' on' : '') + '" style="margin-left:auto" data-cond-sw="' + field + '"><i></i></span></div>';
-    }
-    var h = '';
-    h += '<div class="card"><div class="cbody"><div class="chead"><span class="nm">吃什么</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">餐次</span>' +
-         pills('meal', [{v:'auto',t:'自动'},{v:'breakfast',t:'早'},{v:'lunch',t:'午'},{v:'dinner',t:'晚'}], false) + '</div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">角色（可多选）</span>' +
-         pills('roles', [{v:'main',t:'主菜'},{v:'side',t:'配菜'},{v:'staple',t:'主食'},{v:'breakfast',t:'早餐'}], true) + '</div>';
-    h += '</div></div>';
-
-    h += '<div class="card"><div class="cbody"><div class="chead"><span class="nm">限制</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">我家有的器具</span>' +
-         pills('tools', [{v:'wok',t:'锅'},{v:'steamer',t:'蒸笼'},{v:'airfryer',t:'空气炸锅'},{v:'ricecooker',t:'电饭煲'}], true) + '</div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">耗时上限</span>' +
-         pills('maxMinutes', [{v:15,t:'15 分'},{v:30,t:'30 分'},{v:45,t:'45 分'},{v:0,t:'不限'}], false) + '</div>';
-    h += sw('cheapOnly', '只看便宜的');
-    h += sw('easyOnly', '只要简单的');
-    h += sw('healthyFirst', '健康优先');
-    h += '</div></div>';
-
-    h += '<div class="card"><div class="cbody"><div class="chead"><span class="nm">去重与范围</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">排除最近做过</span>' +
-         pills('excludeDays', [{v:3,t:'3 天'},{v:7,t:'7 天'},{v:14,t:'14 天'},{v:0,t:'不排除'}], false) + '</div>';
-    h += sw('pantryOnly', '只用家里有的');
-    h += '<div class="frow"><span class="fl">关键词</span>' +
-         '<span class="input sm' + (c.keyword ? '' : ' ph') + '" style="margin-left:auto;width:150px" data-cond-input="keyword">' +
-         (c.keyword ? esc(c.keyword) : '如「鸡」') + '</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">候选数量</span>' +
-         pills('count', [{v:3,t:'3'},{v:4,t:'4'},{v:5,t:'5'}], false) + '</div>';
-    h += '</div></div>';
-    return h;
   }
 
   /* ---------- 渲染：P6 投票 / 揭晓 ---------- */
@@ -728,7 +674,11 @@
       var conf = C.recipeConflicts(r, S.state, S.ingIndex);
       var last = C.lastDoneDate(r.id, S.state);
       var inVote = cands.indexOf(r.id) !== -1;
-      h += '<div class="rrow"' + (conf.length ? ' style="opacity:.55"' : '') + ' data-act="open-recipe" data-id="' + r.id + '">' +
+      // 外层 .rrow-wrap 负责"滑动露出删除按钮"：
+      //   .rrow-del 固定贴在右侧（不跟着滑），.rrow 盖在它上面左右移动。
+      h += '<div class="rrow-wrap"' + (conf.length ? ' style="opacity:.55"' : '') + '>' +
+           '<span class="rrow-del" data-act="swipe-del" data-id="' + r.id + '">删除</span>' +
+           '<div class="rrow" data-act="open-recipe" data-id="' + r.id + '">' +
            '<span class="b">' + r.emoji + '</span><div class="tx">' +
            '<div class="n1">' + esc(r.name) + (r.builtin ? '' : ' <span style="font-size:10px;color:#8A8A8A">自定义</span>') + '</div>' +
            '<div class="n2">' + metaLine(r) + (conf.length ? ' · <span style="color:#B33A16">' + esc(confReason(conf)) + '</span>' : '') + '</div>' +
@@ -737,7 +687,7 @@
              ? '<span class="vote-add' + (inVote ? ' on' : '') + '" data-act="toggle-candidate" data-id="' + r.id + '">' +
                (inVote ? '已在投票' : '加入投票') + '</span>'
              : (last ? '<span class="was">' + C.fmtRelativeDate(last) + '做过</span>' : '')) +
-           '</div>';
+           '</div></div>';
     }
     if (!shown.length) {
       h += '<div class="card plain"><div class="cbg"></div><div class="cbody" style="text-align:center;padding:20px">' +
@@ -1109,11 +1059,10 @@
     });
     h += '</div>';
 
-    h += '<div class="sec" style="margin-top:2px"><span class="t">选菜偏好</span></div>';
-    h += '<div class="srow" data-act="expand-cond"><span class="si">🎲</span><div>' +
-         '<div class="sn">默认条件</div><div class="sd">' + condSummary(st.defaultConditions) + '</div></div><span class="sa">›</span></div>';
-    // 「常备调料」入口已按用户要求删除。数据层的 staple 逻辑（isStaple / stapleRemoved）
-    // 仍保留：它决定"家里有"判定，删掉的只是这个设置入口。
+    // 「选菜偏好」整块（含"默认条件"入口）已按用户要求删除。
+    // 选菜条件不再让用户调整，所以这里没有可设置的东西了。
+    // 「常备调料」入口此前也已删除。数据层的 staple 逻辑仍保留：
+    // 它决定"家里有"的判定，删掉的只是设置入口。
 
     h += '<div class="sec" style="margin-top:2px"><span class="t">同步</span></div>';
     if (sync) {
@@ -2315,56 +2264,71 @@
   }
   function onPageSwipeEnd() { _pg = null; }
 
-  // ---- 菜库卡片左滑删除 ----
+  // ---- 菜库卡片左滑：露出「删除」按钮 ----
+  // 拉过临界值就停在"打开"位置（露出删除按钮），而不是直接删掉 ——
+  // 删除必须由用户点那个红色按钮才发生，避免误删。
   var _cd = null;
+  var DEL_W = 88;          // .rrow-del 的宽度，和 CSS 保持一致
+  var DEL_OPEN = 70;       // 拉过这么多就吸附到"打开"状态
+
   function onCardSwipeStart(e) {
     var row = e.target && e.target.closest ? e.target.closest('.rrow') : null;
     if (!row) { _cd = null; return; }
-    // 有投票按钮时这一行是"加入投票"的交互，不做删除手势
+    // 投票按钮和删除按钮本身是点击交互，不参与滑动手势
     if (e.target.closest('[data-act="toggle-candidate"]')) { _cd = null; return; }
-    _cd = { row: row, x0: e.clientX, y0: e.clientY, locked: false, done: false, dx: 0 };
+    if (e.target.closest('[data-act="swipe-del"]')) { _cd = null; return; }
+    // 一次只允许一行展开：先把别的收回去
+    closeAllSwipeRows(row);
+    _cd = { row: row, x0: e.clientX, y0: e.clientY, locked: false, done: false, dx: 0,
+            startOffset: row.dataset.offset ? Number(row.dataset.offset) : 0 };
   }
+
   function onCardSwipeMove(e) {
     if (!_cd || _cd.done) return;
     var dx = e.clientX - _cd.x0;
     var dy = e.clientY - _cd.y0;
     if (!_cd.locked) {
       if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
-      // 只认"向左"的横向滑动
-      if (dx > 0 || Math.abs(dx) < Math.abs(dy) * SWIPE_DIR) { _cd = null; return; }
+      // 横向（且不是明显向右）才接管；否则让页面正常滚动
+      if (Math.abs(dx) < Math.abs(dy) * SWIPE_DIR) { _cd = null; return; }
       _cd.locked = true;
       _cd.row.style.transition = 'none';
     }
-    // 跟手位移，最多到 96px（再拉也不动了）
-    var shift = Math.max(-96, dx);
+    // 跟手位移：从当前偏移继续，夹在 [-DEL_W, 0]
+    var shift = _cd.startOffset + dx;
+    if (shift > 0) shift = 0;
+    if (shift < -DEL_W) shift = -DEL_W;
     _cd.dx = shift;
     _cd.row.style.transform = 'translateX(' + shift + 'px)';
     e.preventDefault();
   }
+
   function onCardSwipeEnd() {
     if (!_cd) return;
-    var row = _cd.row;
-    var dx = _cd.dx;
-    var locked = _cd.locked;
-    var id = row.dataset.id;
+    var row = _cd.row, dx = _cd.dx, locked = _cd.locked;
     _cd = null;
     if (!locked) return;
-
     row.style.transition = 'transform .22s cubic-bezier(.22,.9,.24,1)';
-    if (dx <= -SWIPE_MIN) {
-      // 拉够了 → 收走并删掉（含内置菜，见 doRemoveRecipe）
-      var nm = recipe(id);
-      row.style.transform = 'translateX(-110%)';
-      row.style.opacity = '0';
-      setTimeout(function () {
-        if (row.parentNode) row.parentNode.removeChild(row);
-        doRemoveRecipe(id);
-        render();
-        toast('已删除「' + (nm ? nm.name : '') + '」');
-      }, 200);
+    // 吸附：拉过一半就停在打开位，否则弹回
+    if (dx <= -DEL_OPEN) {
+      row.style.transform = 'translateX(' + (-DEL_W) + 'px)';
+      row.dataset.offset = String(-DEL_W);
     } else {
-      // 没拉够 → 弹回去
       row.style.transform = '';
+      row.dataset.offset = '0';
+    }
+  }
+
+  /** 把除了 keep 之外所有已展开的行收回原位。 */
+  function closeAllSwipeRows(keep) {
+    var open = document.querySelectorAll('.rrow[data-offset]');
+    for (var i = 0; i < open.length; i++) {
+      var r = open[i];
+      if (r === keep) continue;
+      if (r.dataset.offset === '0') continue;
+      r.style.transition = 'transform .22s cubic-bezier(.22,.9,.24,1)';
+      r.style.transform = '';
+      r.dataset.offset = '0';
     }
   }
 
@@ -2385,8 +2349,7 @@
           render(true); return;      // 只有切 Tab 才让胶囊滑
         }
         if (d.vote) { setVote(d.id, d.vote); return; }
-        if (d.cond) { setCond(d.cond, d.val, d.multi === '1'); return; }
-        if (d.condSw) { toggleCond(d.condSw); return; }
+        // d.cond / d.condSw 已随「调整条件」面板删除（不再有这些元素）
         if (d.pantry) { togglePantry(d.pantry); return; }
         if (d.check) { toggleCheck(d.check); return; }
         if (d.ingToggle) { toggleIngPick(d.ingToggle); return; }
@@ -2527,21 +2490,17 @@
         }
         break;
       case 'random':
-        S.view = { name: 'random', params: { expanded: false } }; render(); break;
-      case 'expand-cond':
-        S.view = { name: 'random', params: { expanded: true } }; render(); break;
-      case 'save-default':
-        S.state.defaultConditions = JSON.parse(JSON.stringify(S.state.lastConditions));
-        save(); toast('已保存为默认条件'); break;
+        S.view = { name: 'random', params: {} }; render(); break;
+      // expand-cond / save-default 已随「调整条件」面板一起删除（用户不需要筛选偏好）。
+      // 条件本身仍有默认值（state.defaultConditions），只是不再让用户手改。
       case 'do-draw': doDraw(); break;
       case 'pick-self':
         S.tab = 'library'; S.view = null; S._restoreScrollTop = 0;
         render(); toast('点任意菜即定今晚做'); break;
       case 'find-by-pantry':
         S.tab = 'pantry'; S.view = null; S._restoreScrollTop = 0; render(); break;
-      case 'go-library': S.tab = 'library'; S.view = null; S._restoreScrollTop = 0; render(); break;
       case 'go-shopping': S.view = { name: 'shopping' }; S._restoreScrollTop = 0; render(); break;
-      case 'go-recent': S.tab = 'me'; S.view = null; S._restoreScrollTop = 0; render(); break;
+      // go-recent 已删（那排快捷按钮一起去掉了；「最近做过」列表仍在今天页）
       case 'open-recipe': S.view = { name: 'recipe', params: { id: data.id } }; S._restoreScrollTop = 0; render(); break;
       case 'edit-recipe': S.view = { name: 'recipeForm', params: { id: data.id } }; S._restoreScrollTop = 0; render(); break;
       case 'new-recipe': S.view = { name: 'recipeForm', params: {} }; S._restoreScrollTop = 0; render(); break;
@@ -2580,6 +2539,19 @@
       }
 
       /* ---- 食材页（Tab）自己的搜索框 ---- */
+      case 'swipe-del': {
+        // 左滑露出的红色删除按钮
+        var dr = recipe(data.id);
+        doRemoveRecipe(data.id);
+        render();
+        // 撤销：把菜放回菜库（内置菜就是从 removedRecipes 名单里拿掉）
+        toast('已删除「' + (dr ? dr.name : '') + '」', '撤销', function () {
+          undoRemoveRecipe(data.id);
+          render();
+          toast('已恢复「' + (dr ? dr.name : '') + '」');
+        });
+        break;
+      }
       case 'toggle-candidate': {
         // 菜库里点「加入投票 / 已在投票」：把这道菜加进/移出当前候选
         var vs = S.state.session;
@@ -2788,28 +2760,8 @@
 
   /* ---------- 动作实现 ---------- */
 
-  function setCond(field, val, multi) {
-    var c = S.state.lastConditions;
-    var numFields = { maxMinutes: 1, excludeDays: 1, count: 1 };
-    if (multi) {
-      var arr = c[field] || [];
-      var v = String(val);
-      var idx = arr.indexOf(v);
-      if (idx === -1) arr.push(v); else arr.splice(idx, 1);
-      c[field] = arr;
-    } else {
-      c[field] = numFields[field] ? Number(val) : val;
-    }
-    save();
-    render();
-  }
-
-  function toggleCond(field) {
-    var c = S.state.lastConditions;
-    c[field] = !c[field];
-    save();
-    render();
-  }
+  // setCond / toggleCond 已随「调整条件」面板删除：没有调用方了。
+  // 选菜条件现在只读（state.lastConditions 用默认值建好后就固定）。
 
   function doDraw() {
     var c = S.state.lastConditions;
@@ -3214,16 +3166,59 @@
    * 内置菜来自 recipes.json，删不掉源文件，所以记进 state.removedRecipes，
    * core.allRecipes() 会按这张名单把它们过滤掉。
    * 自定义菜直接从 customRecipes 里移除，同时也记一笔（免得它出现在别处的旧数据里）。
+   *
+   * 返回一份快照，供「撤销」把这道菜连历史一起放回去。
    */
+  var _lastRemoval = null;
+
   function doRemoveRecipe(id) {
-    if (!id) return;
+    if (!id) return null;
     if (!S.state.removedRecipes) S.state.removedRecipes = [];
+    // 快照：撤销时要用。删掉的东西不止菜本身 —— 历史记录和"今晚菜单"
+    // 里相关联的条目也一起清了，所以必须把它们也存下来才能真的还原。
+    var snap = {
+      id: id,
+      custom: (S.state.customRecipes || []).filter(function (x) { return x.id === id; }),
+      doneLog: (S.state.doneLog || []).filter(function (x) { return x.recipeId === id; }),
+      tonight: (S.state.tonight || []).filter(function (x) { return x.recipeId === id; }),
+      candidates: (S.state.session && S.state.session.candidates)
+        ? S.state.session.candidates.slice() : null
+    };
+    _lastRemoval = snap;
+
     if (S.state.removedRecipes.indexOf(id) === -1) S.state.removedRecipes.push(id);
     S.state.customRecipes = (S.state.customRecipes || []).filter(function (x) { return x.id !== id; });
     S.state.doneLog = (S.state.doneLog || []).filter(function (x) { return x.recipeId !== id; });
     S.state.tonight = (S.state.tonight || []).filter(function (x) { return x.recipeId !== id; });
     if (S.state.session && S.state.session.candidates) {
       S.state.session.candidates = S.state.session.candidates.filter(function (x) { return x !== id; });
+    }
+    save();
+    return snap;
+  }
+
+  /** 撤销一次删除：把菜、历史记录、今晚菜单一起放回去。 */
+  function undoRemoveRecipe(id) {
+    if (!id) return;
+    S.state.removedRecipes = (S.state.removedRecipes || []).filter(function (x) { return x !== id; });
+    var snap = (_lastRemoval && _lastRemoval.id === id) ? _lastRemoval : null;
+    if (snap) {
+      // 自定义菜放回 customRecipes
+      if (snap.custom && snap.custom.length) {
+        S.state.customRecipes = (S.state.customRecipes || []).concat(snap.custom);
+      }
+      // 历史记录和今晚菜单按原样并回去
+      if (snap.doneLog && snap.doneLog.length) {
+        S.state.doneLog = (S.state.doneLog || []).concat(snap.doneLog);
+      }
+      if (snap.tonight && snap.tonight.length) {
+        S.state.tonight = (S.state.tonight || []).concat(snap.tonight);
+      }
+      // 投票候选恢复原顺序
+      if (snap.candidates && S.state.session) {
+        S.state.session.candidates = snap.candidates;
+      }
+      _lastRemoval = null;
     }
     save();
   }
