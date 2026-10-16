@@ -333,7 +333,8 @@
     var shop = C.buildShoppingList(menu, st, S.ingIndex, S.recipeById);
     h += '<div class="qi pink" data-act="go-shopping"><span class="ic">📝</span><span class="lb">采购清单</span>' +
          (shop.total ? '<span class="dot">' + shop.total + '</span>' : '') + '</div>';
-    h += '<div class="qi black" data-act="go-recent"><span class="ic">🕘</span><span class="lb">最近做过</span></div>';
+    // 「最近做过」快捷按钮已按用户要求删除。
+    // 今天页下方那段「最近做过」列表保留（那是另一处，用户没让删）。
     h += '</div>';
 
     // 今晚菜单
@@ -775,8 +776,6 @@
     if (!r) { S.view = null; return renderToday(); }
     var conf = C.recipeConflicts(r, S.state, S.ingIndex);
     var miss = C.recipeMissing(r, S.state, S.ingIndex);
-    var last = C.lastDoneDate(r.id, S.state);
-    var times = (S.state.doneLog || []).filter(function (x) { return x.recipeId === r.id; }).length;
 
     var h = '<div class="bar"><div class="back" data-act="back">←</div><div><div class="ttl">菜品详情</div></div></div>';
     h += '<div class="det-hero"><div class="dots"></div>' +
@@ -791,12 +790,8 @@
       h += '<div class="warn"><span class="wi">⚠️</span><span class="wt">' + esc(confReason(conf)) + '</span></div>';
     }
 
-    // 标签
-    if (r.tags && r.tags.length) {
-      h += '<div class="chips" style="margin-top:2px">' + r.tags.map(function (t) {
-        return '<span class="chip">' + esc(t) + '</span>';
-      }).join('') + '</div>';
-    }
+    // 标签 / 小提示 / 「还没做过」统计行 / 加进清单 / 编辑 都已按用户要求删除。
+    // 这一页现在只剩：菜品信息 + 食材清单 + 「今晚就做它」。
 
     // 食材
     h += '<div class="sec"><span class="t">食材</span><span class="count-tag">' + r.ingredients.length + ' 样</span></div>';
@@ -814,15 +809,6 @@
     }
     h += '</div></div>';
 
-    if (r.tip) {
-      h += '<div class="tipbox"><b>小提示</b><br>' + esc(r.tip) + '</div>';
-    }
-
-    h += '<div class="srow"><span class="si">🕘</span><div>' +
-         '<div class="sn">' + (times ? '做过 ' + times + ' 次' : '还没做过') + '</div>' +
-         '<div class="sd">' + (last ? '上次是 ' + C.fmtRelativeDate(last) : '第一次做的话，加油') + '</div>' +
-         '</div></div>';
-
     if (tonightActive().length < 3 && !tonightActive().some(function (x) { return x.recipeId === r.id; })) {
       h += '<div class="btn-main" data-act="decide" data-id="' + r.id + '">今 晚 就 做 它</div>';
     } else if (tonightActive().some(function (x) { return x.recipeId === r.id; })) {
@@ -831,10 +817,6 @@
       h += '<div class="btn-sub" style="opacity:.6">今晚菜单已满（3 道）</div>';
     }
 
-    h += '<div class="ops" style="gap:10px">';
-    h += '<span style="flex:1;text-align:center;padding:11px 0" data-act="add-shopping" data-id="' + r.id + '">加进清单</span>';
-    h += '<span style="flex:1;text-align:center;padding:11px 0" data-act="edit-recipe" data-id="' + r.id + '">编辑</span>';
-    h += '</div>';
     h += navHTML('library');
     return h;
   }
@@ -869,40 +851,12 @@
          }).join('') + '</div></div>';
     h += '</div></div>';
 
-    h += '<div class="card"><div class="cbody"><div class="chead"><span class="nm">分类与规格</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">餐次</span>' +
-         '<span class="pills">' + [['breakfast','早'],['lunch','午'],['dinner','晚']].map(function (m) {
-           return '<span class="pill' + (cur.meals.indexOf(m[0]) !== -1 ? ' on' : '') + '" data-form-meal="' + m[0] + '">' + m[1] + '</span>';
-         }).join('') + '</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">角色</span>' +
-         '<span class="pills">' + [['main','主菜'],['side','配菜'],['staple','主食'],['breakfast','早餐']].map(function (m) {
-           return '<span class="pill' + (cur.role === m[0] ? ' on' : '') + '" data-form-role="' + m[0] + '">' + m[1] + '</span>';
-         }).join('') + '</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">器具</span>' +
-         '<span class="pills">' + [['wok','锅'],['steamer','蒸笼'],['airfryer','空气炸锅'],['ricecooker','电饭煲']].map(function (m) {
-           var on = cur.tools.indexOf(m[0]) !== -1;
-           return '<span class="pill' + (on ? ' on' : ' dis') + '" data-form-tool="' + m[0] + '">' + m[1] + '</span>';
-         }).join('') + '</span></div>';
-    h += '<div class="frow"><span class="fl">耗时</span>' +
-         '<span class="input sm" style="margin-left:auto;width:78px;text-align:center" data-form="minutes">' + cur.minutes + '</span>' +
-         '<span style="font-size:11.5px;font-weight:700;color:#7A7A7A">分钟</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">成本</span>' +
-         '<span class="pills">' + [[1,'¥ 便宜'],[2,'¥¥ 一般'],[3,'¥¥¥ 稍贵']].map(function (m) {
-           return '<span class="pill' + (cur.cost === m[0] ? ' on' : '') + '" data-form-cost="' + m[0] + '">' + m[1] + '</span>';
-         }).join('') + '</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">难度</span>' +
-         '<span class="pills">' + [[1,'简单'],[2,'中等']].map(function (m) {
-           return '<span class="pill' + (cur.difficulty === m[0] ? ' on' : '') + '" data-form-diff="' + m[0] + '">' + m[1] + '</span>';
-         }).join('') + '</span></div>';
-    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px"><span class="fl" style="flex:none">辣度</span>' +
-         '<span class="pills">' + [[0,'不辣'],[1,'微辣'],[2,'辣'],[3,'很辣']].map(function (m) {
-           return '<span class="pill' + (cur.spicy === m[0] ? ' on' : '') + '" data-form-spicy="' + m[0] + '">' + m[1] + '</span>';
-         }).join('') + '</span></div>';
-    h += '<div class="frow"><span class="fl">健康度</span>' +
-         '<span class="dotpick" style="margin-left:auto">' + [1,2,3,4,5].map(function (n) {
-           return '<i class="' + (n <= cur.healthy ? 'on' : '') + '" data-form-healthy="' + n + '"></i>';
-         }).join('') + '</span></div>';
     h += '</div></div>';
+
+    // 「分类与规格」整张卡片已按用户要求删除（餐次 / 角色 / 器具 / 耗时 / 成本 /
+    // 难度 / 辣度 / 健康度）。相关字段仍留在数据里，取菜池等逻辑照旧读它们，
+    // 只是不再让用户手改 —— 删掉的只是这个表单入口和它的点击处理。
+    // 耗时仍展示在菜品行上（metaLine 读 r.minutes），所以新菜用 base 里的默认值。
 
     // 食材
     h += '<div class="sec"><span class="t">食材</span><span class="count-tag">' + cur.ingredients.length + ' 样</span></div>';
@@ -1861,28 +1815,8 @@
     render();
   }
 
-  function toggleDraftMeal(m) {
-    if (!S._draft) return;
-    var arr = S._draft.meals || [];
-    var i = arr.indexOf(m);
-    if (i === -1) {
-      arr.push(m);
-    } else {
-      if (arr.length === 1) { toast('至少留一个餐次'); return; }
-      arr.splice(i, 1);
-    }
-    S._draft.meals = arr;
-    render();
-  }
-
-  function toggleDraftTool(t) {
-    if (!S._draft) return;
-    var arr = S._draft.tools || [];
-    var i = arr.indexOf(t);
-    if (i === -1) arr.push(t); else arr.splice(i, 1);
-    S._draft.tools = arr;
-    render();
-  }
+  // toggleDraftMeal / toggleDraftTool 已随「分类与规格」卡片一起删除：
+  // 餐次和器具不再让用户手改，没有调用方了。
 
   function delDraftIng(idx) {
     if (!S._draft || !S._draft.ingredients) return;
@@ -2091,7 +2025,7 @@
         borderRadius: '999px', opacity: .55 },
       { transform: 'translate(0,0)',
         width: tr.width + 'px', height: tr.height + 'px',
-        borderRadius: '30px 30px 0 0', opacity: 1 }
+        borderRadius: '24px', opacity: 1 }
     ], { duration: dur, easing: ease, fill: 'both' });
 
     // 内容延到 60% 才淡入 —— 早了文字会被拉伸变形
@@ -2156,25 +2090,54 @@
    * @param {boolean} animateNav 仅切换底部 Tab 时传 true；
    *   其余渲染（勾选、重绘、进二级页）都不该让胶囊"滑"，直接落位即可。
    */
+  /**
+   * 这几个视图本身就是"浮层"，渲染结果只有一张弹层。
+   *
+   * 它们出现时如果直接把结果写进 .scr，底层页面就被清空了 ——
+   * 用户看到的就是"点一下按钮，背景全空"。所以下面 render() 会：
+   *   1. 把弹层之前那一页重新画在底层（S._baseView / S._baseTab）
+   *   2. 再把这层弹层叠上去
+   * 弹层关掉后 S.view 变回 null，底层那一页自然还在。
+   */
+  var SHEET_VIEWS = { random: 1, askInput: 1, syncConfirm: 1, confirm: 1, ingPicker: 1 };
+
+  /** 按给定的视图/标签页画一页（不含任何"浮层"叠加逻辑）。 */
+  function renderPage(view, tab) {
+    if (view && view.name === 'vote') return renderVote();
+    if (view && view.name === 'reveal') return renderReveal();
+    if (view && view.name === 'recipe') return renderRecipe();
+    if (view && view.name === 'recipeForm') return renderRecipeForm();
+    if (view && view.name === 'shopping') return renderShopping();
+    if (view && view.name === 'random') return renderRandomSheet(!!view.params.expanded);
+    if (view && view.name === 'sync') return renderSync();
+    if (view && view.name === 'ingPicker') return renderIngredientPicker(S._pick);
+    if (view && view.name === 'askInput') return renderAskInput();
+    if (view && view.name === 'syncConfirm') return renderSyncConfirm();
+    if (view && view.name === 'confirm') return renderConfirm();
+    if (view && view.name === 'memberEdit') return renderMemberEdit();
+    if (tab === 'library') return renderLibrary();
+    if (tab === 'pantry') return renderPantry();
+    if (tab === 'me') return renderMe();
+    return renderToday();
+  }
+
   function render(animateNav) {
     var app = document.getElementById('app');
-    var h = '';
-    if (S.view && S.view.name === 'vote') h = renderVote();
-    else if (S.view && S.view.name === 'reveal') h = renderReveal();
-    else if (S.view && S.view.name === 'recipe') h = renderRecipe();
-    else if (S.view && S.view.name === 'recipeForm') h = renderRecipeForm();
-    else if (S.view && S.view.name === 'shopping') h = renderShopping();
-    else if (S.view && S.view.name === 'random') h = renderRandomSheet(!!S.view.params.expanded);
-    else if (S.view && S.view.name === 'sync') h = renderSync();
-    else if (S.view && S.view.name === 'ingPicker') h = renderIngredientPicker(S._pick);
-    else if (S.view && S.view.name === 'askInput') h = renderAskInput();
-    else if (S.view && S.view.name === 'syncConfirm') h = renderSyncConfirm();
-    else if (S.view && S.view.name === 'confirm') h = renderConfirm();
-    else if (S.view && S.view.name === 'memberEdit') h = renderMemberEdit();
-    else if (S.tab === 'library') h = renderLibrary();
-    else if (S.tab === 'pantry') h = renderPantry();
-    else if (S.tab === 'me') h = renderMe();
-    else h = renderToday();
+
+    var isSheet = !!(S.view && SHEET_VIEWS[S.view.name]);
+    if (!isSheet) {
+      // 记下"弹层底下应该是哪一页"，等弹层出现时照着它重画
+      S._baseView = S.view ? { name: S.view.name, params: S.view.params } : null;
+      S._baseTab = S.tab;
+    }
+
+    var h;
+    if (isSheet) {
+      h = renderPage(S._baseView, S._baseTab || S.tab);   // 底层页面（保持可见）
+      h += renderPage(S.view, S.tab);                    // 叠在上面的弹层
+    } else {
+      h = renderPage(S.view, S.tab);
+    }
 
     // 同步状态细条
     if (syncStatus) {
@@ -2298,6 +2261,113 @@
     }
   }
 
+  /* ---------- 滑动手势 ----------
+     两个需求共用一个判定：
+       · 子页面右滑返回（页面级）
+       · 菜库卡片左滑删除（卡片级）
+
+     用 pointer 事件而不是 touch 事件：桌面端用鼠标拖也能测，
+     而且 iOS 上 pointer 事件与滚动配合正常。
+
+     判定要点：
+       · 先看方向 —— 横向位移要明显大于纵向，否则是在上下滚页面，不该抢
+       · 卡片级的手势在 pointerdown 时就把行"锁"住，避免中途被滚动抢走
+       · 不碰 touchend/touchmove 的 preventDefault（会吃掉 click，见 lockZoom 的注释） */
+
+  var SWIPE_MIN = 46;        // 触发返回/删除的最小横向位移（px）
+  var SWIPE_DIR = 1.6;       // 横向要大于纵向的多少倍才算横向滑动
+
+  /** 返回上一级：和点左上角「←」完全同一条路径。 */
+  function goBack() {
+    if (!S.view || !S.view.name) return false;
+    // 弹层有各自的关闭方式，不走"返回上一页"
+    if (SHEET_VIEWS[S.view.name]) return false;
+    S.view = null;
+    render();
+    return true;
+  }
+
+  // ---- 子页面右滑返回 ----
+  var _pg = null;
+  function onPageSwipeStart(e) {
+    // 只在二级页面生效（有返回箭头的那些），弹层自己有关闭方式
+    if (!S.view || !S.view.name) { _pg = null; return; }
+    if (SHEET_VIEWS[S.view.name]) { _pg = null; return; }
+    // 从屏幕最左边 40px 内起手才算"返回手势"，避免和别的手势打架
+    if (e.clientX > 40) { _pg = null; return; }
+    _pg = { x0: e.clientX, y0: e.clientY, locked: false, done: false };
+  }
+  function onPageSwipeMove(e) {
+    if (!_pg || _pg.done) return;
+    var dx = e.clientX - _pg.x0;
+    var dy = e.clientY - _pg.y0;
+    if (!_pg.locked) {
+      // 还判断不出方向：横向不够明显就先不动，让页面正常滚动
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      if (Math.abs(dx) < Math.abs(dy) * SWIPE_DIR) { _pg = null; return; }
+      _pg.locked = true;
+    }
+    if (dx >= SWIPE_MIN) {
+      _pg.done = true;
+      _pg = null;
+      goBack();
+    }
+  }
+  function onPageSwipeEnd() { _pg = null; }
+
+  // ---- 菜库卡片左滑删除 ----
+  var _cd = null;
+  function onCardSwipeStart(e) {
+    var row = e.target && e.target.closest ? e.target.closest('.rrow') : null;
+    if (!row) { _cd = null; return; }
+    // 有投票按钮时这一行是"加入投票"的交互，不做删除手势
+    if (e.target.closest('[data-act="toggle-candidate"]')) { _cd = null; return; }
+    _cd = { row: row, x0: e.clientX, y0: e.clientY, locked: false, done: false, dx: 0 };
+  }
+  function onCardSwipeMove(e) {
+    if (!_cd || _cd.done) return;
+    var dx = e.clientX - _cd.x0;
+    var dy = e.clientY - _cd.y0;
+    if (!_cd.locked) {
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      // 只认"向左"的横向滑动
+      if (dx > 0 || Math.abs(dx) < Math.abs(dy) * SWIPE_DIR) { _cd = null; return; }
+      _cd.locked = true;
+      _cd.row.style.transition = 'none';
+    }
+    // 跟手位移，最多到 96px（再拉也不动了）
+    var shift = Math.max(-96, dx);
+    _cd.dx = shift;
+    _cd.row.style.transform = 'translateX(' + shift + 'px)';
+    e.preventDefault();
+  }
+  function onCardSwipeEnd() {
+    if (!_cd) return;
+    var row = _cd.row;
+    var dx = _cd.dx;
+    var locked = _cd.locked;
+    var id = row.dataset.id;
+    _cd = null;
+    if (!locked) return;
+
+    row.style.transition = 'transform .22s cubic-bezier(.22,.9,.24,1)';
+    if (dx <= -SWIPE_MIN) {
+      // 拉够了 → 收走并删掉（含内置菜，见 doRemoveRecipe）
+      var nm = recipe(id);
+      row.style.transform = 'translateX(-110%)';
+      row.style.opacity = '0';
+      setTimeout(function () {
+        if (row.parentNode) row.parentNode.removeChild(row);
+        doRemoveRecipe(id);
+        render();
+        toast('已删除「' + (nm ? nm.name : '') + '」');
+      }, 200);
+    } else {
+      // 没拉够 → 弹回去
+      row.style.transform = '';
+    }
+  }
+
   /* ---------- 事件 ---------- */
   function onClick(e) {
     var t = e.target;
@@ -2351,13 +2421,8 @@
           }
           render(); return;
         }
-        if (d.formMeal) { toggleDraftMeal(d.formMeal); return; }
-        if (d.formRole) { setDraft('role', d.formRole); return; }
-        if (d.formTool) { toggleDraftTool(d.formTool); return; }
-        if (d.formCost) { setDraft('cost', Number(d.formCost)); return; }
-        if (d.formDiff) { setDraft('difficulty', Number(d.formDiff)); return; }
-        if (d.formSpicy) { setDraft('spicy', Number(d.formSpicy)); return; }
-        if (d.formHealthy) { setDraft('healthy', Number(d.formHealthy)); return; }
+        // 分类与规格那张卡片已删，对应的 formMeal / formRole / formTool /
+        // formCost / formDiff / formSpicy / formHealthy 处理一并去掉。
         if (d.formDelIng !== undefined) { delDraftIng(Number(d.formDelIng)); return; }
         if (d.form) { editDraftField(d.form); return; }
       }
@@ -3134,16 +3199,33 @@
       okLabel: '删 除',
       danger: true,
       onOk: function () {
-        S.state.customRecipes = S.state.customRecipes.filter(function (x) { return x.id !== id; });
-        S.state.doneLog = S.state.doneLog.filter(function (x) { return x.recipeId !== id; });
-        S.state.tonight = S.state.tonight.filter(function (x) { return x.recipeId !== id; });
-        save();
+        doRemoveRecipe(id);
         S._confirm = null;
         S.view = null; S.tab = 'library';
         render();
-        toast('已删除');
+        toast('已删除「' + r.name + '」');
       }
     });
+  }
+
+  /**
+   * 真正把一道菜从菜库里去掉（内置菜和自定义菜都支持）。
+   *
+   * 内置菜来自 recipes.json，删不掉源文件，所以记进 state.removedRecipes，
+   * core.allRecipes() 会按这张名单把它们过滤掉。
+   * 自定义菜直接从 customRecipes 里移除，同时也记一笔（免得它出现在别处的旧数据里）。
+   */
+  function doRemoveRecipe(id) {
+    if (!id) return;
+    if (!S.state.removedRecipes) S.state.removedRecipes = [];
+    if (S.state.removedRecipes.indexOf(id) === -1) S.state.removedRecipes.push(id);
+    S.state.customRecipes = (S.state.customRecipes || []).filter(function (x) { return x.id !== id; });
+    S.state.doneLog = (S.state.doneLog || []).filter(function (x) { return x.recipeId !== id; });
+    S.state.tonight = (S.state.tonight || []).filter(function (x) { return x.recipeId !== id; });
+    if (S.state.session && S.state.session.candidates) {
+      S.state.session.candidates = S.state.session.candidates.filter(function (x) { return x !== id; });
+    }
+    save();
   }
 
   /* ---------- 启动 ---------- */
@@ -3258,6 +3340,19 @@
         }
       });
       registerSW();
+
+      // ---- 滑动手势：子页面右滑返回 + 菜库卡片左滑删除 ----
+      // pointerdown 记起点、pointermove 判定方向、pointerup 收尾。
+      // 用捕获阶段监听，保证在滚动容器的默认行为之前拿到事件。
+      document.addEventListener('pointerdown', onPageSwipeStart, true);
+      document.addEventListener('pointermove', onPageSwipeMove, { capture: true, passive: false });
+      document.addEventListener('pointerup', onPageSwipeEnd, true);
+      document.addEventListener('pointercancel', onPageSwipeEnd, true);
+
+      document.addEventListener('pointerdown', onCardSwipeStart, true);
+      document.addEventListener('pointermove', onCardSwipeMove, { capture: true, passive: false });
+      document.addEventListener('pointerup', onCardSwipeEnd, true);
+      document.addEventListener('pointercancel', onCardSwipeEnd, true);
 
       // 视口变化（横竖屏切换、桌面端拉伸）后胶囊必须重新量尺寸对齐
       var reflowT = null;

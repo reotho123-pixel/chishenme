@@ -80,6 +80,9 @@
       lastConditions: defaultConditions(),
       customRecipes: [],
       recipeOverrides: {},
+      // 被用户删掉的内置菜 id：内置菜在 recipes.json 里删不掉，
+      // 所以用这张名单把它们从「菜库」里隐藏掉（左滑删除要用）。
+      removedRecipes: [],
       tonight: [],
       doneLog: [],
       session: null,
@@ -193,8 +196,12 @@
   function allRecipes(builtin, state) {
     var out = [];
     var overrides = state.recipeOverrides || {};
+    // 左滑删除掉的菜（含内置菜）不再出现在菜库里
+    var removed = state.removedRecipes || [];
+    function isRemoved(id) { return removed.indexOf(id) !== -1; }
     for (var i = 0; i < builtin.length; i++) {
       var r = builtin[i];
+      if (isRemoved(r.id)) continue;
       var ov = overrides[r.id];
       if (ov) {
         var merged = {};
@@ -212,6 +219,7 @@
     }
     var custom = state.customRecipes || [];
     for (var j = 0; j < custom.length; j++) {
+      if (isRemoved(custom[j].id)) continue;
       var c = {};
       for (var k4 in custom[j]) if (Object.prototype.hasOwnProperty.call(custom[j], k4)) c[k4] = custom[j][k4];
       c.builtin = false;
