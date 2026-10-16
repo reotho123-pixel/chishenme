@@ -319,8 +319,8 @@
     h += '<span class="spark" style="right:22px;bottom:88px;font-size:13px">✦</span>';
     h += '<div class="dice-wrap"><div class="dice">🎲</div></div>';
     h += '<div class="h1">随机选菜</div>';
-    h += '<div class="h2">' + condSummary(st.lastConditions) + '</div>';
-    h += '<div class="bignum"><span class="n">' + poolCount(st.lastConditions) + '</span><span class="u">道可选</span></div>';
+    // 「30 分钟内 · 不辣 · 排除最近 7 天」这行条件和下面的「N 道可选」都已按
+    // 用户要求删除：筛选偏好这个功能整块不要了，就不该再露出任何条件文案。
     h += '<div class="heart-arc"><i>♥</i><i>♥</i><i>♥</i><i>♥</i><i>♥</i></div>';
     h += '<div class="btn-main" data-act="random">开 始</div>';
     // 三个次级入口都收进主卡（原来下面还单独有一排快捷按钮，功能重复，已删）
@@ -421,33 +421,19 @@
 
   /* ---------- 渲染：P5 随机选菜（弹层） ---------- */
 
-  function condSummary(c) {
-    var parts = [];
-    if (c.maxMinutes) parts.push(c.maxMinutes + ' 分钟内');
-    parts.push('不辣');
-    if (c.excludeDays) parts.push('排除最近 ' + c.excludeDays + ' 天');
-    return parts.slice(0, 3).join(' · ');
-  }
-
-  function poolCount(c) {
-    var p = C.buildPool(c, S.recipes, S.state, S.ingIndex, { today: today() });
-    return p.afterDietCount;
-  }
+  // condSummary / poolCount 已随「筛选偏好」整块功能删除：
+  // 条件文案和「N 道可选」都不再展示了，没有调用方。
 
   function renderRandomSheet(expanded) {
     var c = S.state.lastConditions;
     var p = C.buildPool(c, S.recipes, S.state, S.ingIndex, { today: today() });
     var h = '';
     h += '<div class="sheet-top"><div class="grip"></div><div class="st">随机选菜</div></div>';
-    // 条件只做展示，不再可改（用户不需要"调整条件"这个功能）。
-    // 它仍然有用：让人知道为什么有些菜没被抽进来。
-    h += '<div class="card plain"><div class="cbg"></div><div class="cbody" style="padding:13px 14px">' +
-         '<div style="font-size:12.5px;font-weight:900;color:#111;line-height:1.6">' + condSummary(c) + '</div>' +
-         '</div></div>';
-    h += '<div class="feedback"><span class="fn">' + p.afterDietCount + '</span><div>' +
-         '<div class="ft">道菜符合条件</div><div class="fs">' +
-         (p.afterDietCount >= c.count ? '够抽 ' + c.count + ' 道' : '抽不满 ' + c.count + ' 道') +
-         '</div></div></div>';
+    // 这里原来还有两块内容，都按用户要求删掉了：
+    //   1. 一行条件文案（「30 分钟内 · 不辣 · 排除最近 7 天」）
+    //   2. 「N 道菜符合条件 / 够抽 N 道」那块 feedback
+    // 筛选偏好功能整块不要了，就不该再露出条件或数量。
+    // 只剩抽菜这一个动作。
     if (p.notes.length) {
       h += '<div class="note-mini">' + p.notes.map(function (n) { return esc(n.text); }).join('<br>') + '</div>';
     }
