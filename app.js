@@ -190,6 +190,9 @@
 
   // 中文输入法正在拼字。拼字期间不能去动 input.value，否则候选会被打断。
   var ingComposing = false;
+  // 食材页（Tab）自己的搜索词与拼字标志。和弹层分开：
+  // 两者可以同时存在（弹层从食材页里开出来），共用一个会互相踩。
+  var pantryComposing = false;
 
   // 弹层"身份"：相同就不重建 DOM。
   // 只给带输入框的弹层签名 —— 它们的输入框节点必须活着。
@@ -279,16 +282,8 @@
     var sess = st.session;
     var h = '';
 
-    // 顶部：日期吊牌 + 问候 + 三心
-    h += '<div class="top">';
-    h += '<div class="tagdate"><div class="string"></div><div class="body">' +
-         '<div class="hole"></div>' +
-         '<div class="d1">' + (new Date().getMonth() + 1) + '月' + new Date().getDate() + '日</div>' +
-         '<div class="d2">周' + ['日','一','二','三','四','五','六'][new Date().getDay()] + '</div>' +
-         '</div></div>';
-    h += '<div class="hi-wrap"><div class="hi">' + C.greeting() + '</div>' +
-         '<div class="hearts3"><i>♥</i><i>♥</i><i>♥</i></div></div>';
-    h += '</div>';
+    // 顶部原来的「日期吊牌 + 问候 + 三心」已去掉：整块装饰挤在卡片上方，
+    // 让主卡到不了顶。现在直接从会话横幅 / 主卡开始。
 
     // 会话横幅（双气泡）
     if (sess && !sessionExpired()) {
@@ -722,16 +717,25 @@
          (hiddenCount ? ' · 已隐藏 ' + hiddenCount + ' 道忌口冲突' : '') + '</div>';
 
     var shown = S.view && S.view.params && S.view.params.showBlocked ? list : visible;
+    // 有进行中的投票会话时，每道菜多一个「加入投票」——不必先抽签，
+    // 直接把自己想吃的菜塞进候选里。
+    var sess = S.state.session;
+    var voting = !!(sess && !sessionExpired() && sess.status === 'voting' && !sess.mySubmittedAt);
+    var cands = voting ? sess.candidates : [];
     for (var i = 0; i < shown.length; i++) {
       var r = shown[i];
       var conf = C.recipeConflicts(r, S.state, S.ingIndex);
       var last = C.lastDoneDate(r.id, S.state);
+      var inVote = cands.indexOf(r.id) !== -1;
       h += '<div class="rrow"' + (conf.length ? ' style="opacity:.55"' : '') + ' data-act="open-recipe" data-id="' + r.id + '">' +
            '<span class="b">' + r.emoji + '</span><div class="tx">' +
            '<div class="n1">' + esc(r.name) + (r.builtin ? '' : ' <span style="font-size:10px;color:#8A8A8A">自定义</span>') + '</div>' +
            '<div class="n2">' + metaLine(r) + (conf.length ? ' · <span style="color:#B33A16">' + esc(confReason(conf)) + '</span>' : '') + '</div>' +
            '<div class="dots5">' + dots5(r.healthy) + '</div></div>' +
-           (last ? '<span class="was">' + C.fmtRelativeDate(last) + '做过</span>' : '') +
+           (voting
+             ? '<span class="vote-add' + (inVote ? ' on' : '') + '" data-act="toggle-candidate" data-id="' + r.id + '">' +
+               (inVote ? '已在投票' : '加入投票') + '</span>'
+             : (last ? '<span class="was">' + C.fmtRelativeDate(last) + '做过</span>' : '')) +
            '</div>';
     }
     if (!shown.length) {
@@ -937,108 +941,136 @@
 
   function renderPantry() {
     var st = S.state;
-    var pantry = st.pantry.items || [];
-    var all = C.allRecipes(S.recipes, st);
-    var canDo = [], missOne = [];
-    for (var i = 0; i < all.length; i++) {
-      var r = all[i];
-      if (C.recipeConflicts(r, st, S.ingIndex).length) continue;
-      var m = C.recipeMissing(r, st, S.ingIndex);
-      if (m.canCook) canDo.push(r);
-      else if (m.missing.length <= 2) missOne.push({ r: r, miss: m.missing });
-    }
-    var shop = C.buildShoppingList(tonightActive(), st, S.ingIndex, S.recipeById);
-    var pct = Math.min(100, Math.round(pantry.length / 24 * 100));
+    var q = (S._pantryQ || '').trim();
 
     var h = '<div class="bar"><div><div class="ttl">食材</div>' +
-            '<div class="sub2">' + (st.pantry.updatedAt ? '上次更新：' + C.fmtRelativeDate(st.pantry.updatedAt.slice(0,10)) + (st.pantry.updatedBy ? ' · ' + esc(memberName(st.pantry.updatedBy)) : '') : '还没勾选过') + '</div></div></div>';
+            '<div class="sub2">输入食材，看它能做什么菜</div></div></div>';
 
-    h += '<div class="card plain"><div class="cbg"></div><div class="cbody">' +
-         '<div class="batt-wrap"><div class="batt"><div class="shell">' +
-         '<div class="fill" style="width:' + Math.max(6, pct) + '%"></div></div><div class="cap"></div></div>' +
-         '<div><div class="batt-lb">冰箱存货</div></div>' +
-         '<div class="batt-num">' + pantry.length + ' 样</div></div></div></div>';
+    // 唯一的交互：一个真实的搜索框。
+    // 用户要的是"自己打字输入食材 → 搜索 → 下面出现所有能做的菜"，
+    // 所以这一页不再有冰箱存货 / 分类勾选 / 能做这些菜那些区块。
+    h += '<label class="search pantry-search">' +
+         '<span class="mag">🔍</span>' +
+         '<input type="search" data-pantry-input="1" autocomplete="off" ' +
+         'autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+         'placeholder="输入食材，如「番茄」「鸡蛋」" value="' + esc(q) + '">' +
+         (q ? '<span class="st" data-act="clear-pantry-search">✕</span>' : '') +
+         '</label>';
 
-    h += '<div class="sec"><span class="t">家里现在有</span><span class="h">♡</span>' +
-         (pantry.length ? '<span class="count-tag">' + pantry.length + ' 样</span>' : '') + '</div>';
-
-    // 搜索添加（主入口）
-    h += '<div class="search" data-act="open-ing-picker">' +
-         '<span class="mag">＋</span>' +
-         '<span class="ph">搜索添加食材…</span>' +
-         '<span class="st">🔍</span>' +
-         '</div>';
-
-    // 已添加的食材：直接列出，点一下即移除
-    if (!pantry.length) {
-      h += '<div class="note-mini" style="text-align:center;padding:12px 0">' +
-           '还没添加食材。<br>点上面的搜索框，输入「番茄」「鸡蛋」就能加进来。</div>';
-    } else {
-      // 按分类分组展示已添加的，方便一眼扫过
-      var haveByCat = {};
-      pantry.forEach(function (id) {
-        var g = S.ingIndex.byId[id];
-        if (!g) return;
-        if (!haveByCat[g.category]) haveByCat[g.category] = [];
-        haveByCat[g.category].push(g);
-      });
-      var catOrder = ['vegetable','protein','seafood','soy','staple','fruit','dry','condiment','other'];
-      h += '<div class="have-groups">';
-      catOrder.forEach(function (cat) {
-        var list = haveByCat[cat];
-        if (!list || !list.length) return;
-        h += '<div class="have-row">' +
-             '<span class="have-cat">' + (C.CATEGORY_LABEL[cat] || '其他') + '</span>' +
-             '<span class="chips" style="flex:1">' +
-             list.map(function (g) {
-               return '<span class="chip on" data-pantry="' + g.id + '" title="点一下移除">' + esc(g.name) + '</span>';
-             }).join('') +
-             '</span></div>';
-      });
-      h += '</div>';
-      h += '<div class="note-mini" style="text-align:center">点食材可以移除</div>';
-    }
-
-    // 能做这些菜
-    var canDoLabel = pantry.length ? '能做这些菜' : '加点食材就能做';
-    h += '<div class="sec" style="margin-top:6px"><span class="t">' + canDoLabel + '</span>' +
-         (canDo.length || missOne.length ? '<span class="count-tag">' + (canDo.length + missOne.length) + ' 道</span>' : '') + '</div>';
-    if (!pantry.length) {
-      h += '<div class="note-mini">上面添加食材后，这里会列出你能做的菜。</div>';
-    }
-
-    for (var a = 0; a < Math.min(canDo.length, 8); a++) {
-      var r1 = canDo[a];
-      h += '<div class="cando"><span class="b">' + r1.emoji + '</span><div>' +
-           '<div class="n">' + esc(r1.name) + '</div><div class="m">' + C.fmtMinutes(r1.minutes) + ' · 食材全齐</div></div>' +
-           '<span class="go" data-act="decide" data-id="' + r1.id + '">做它</span></div>';
-    }
-    for (var b = 0; b < Math.min(missOne.length, 6); b++) {
-      var mm = missOne[b];
-      h += '<div class="cando miss"><span class="b">' + mm.r.emoji + '</span><div>' +
-           '<div class="n">' + esc(mm.r.name) + '</div>' +
-           '<div class="m">' + C.fmtMinutes(mm.r.minutes) + ' · <span class="lack">缺：' +
-           esc(mm.miss.map(function (x) { return x.name; }).join('、')) + '</span></div></div>' +
-           '<span class="go" data-act="open-recipe" data-id="' + mm.r.id + '">看看</span></div>';
-    }
-    if (!canDo.length && !missOne.length) {
-      h += '<div class="note-mini">上面添加食材后，这里会列出你能做的菜。</div>';
-    }
-
-    // 采购清单入口（竖吊牌）
-    h += '<div style="display:flex;gap:12px;align-items:stretch;margin-top:6px">';
-    h += '<div class="vtag"><div class="s"></div><div class="b"><div class="h">♥</div>' +
-         '<div class="l1">采购<br>清单</div><div class="l2">' + shop.total + ' 样</div></div></div>';
-    h += '<div class="card plain" style="flex:1"><div class="cbg"></div>' +
-         '<div class="cbody" style="display:flex;flex-direction:column;justify-content:center">' +
-         '<div style="font-size:13.5px;font-weight:900;color:#111">' + (shop.total ? '还没买' : '清单是空的') + '</div>' +
-         '<div style="font-size:11px;font-weight:700;color:#8A8A8A;margin-top:5px">' +
-         (shop.total ? esc(shop.toBuy.slice(0, 3).map(function (x) { return x.name; }).join(' · ')) : '定好今晚的菜会自动列出') + '</div>' +
-         '<div class="ops" style="margin-top:11px"><span class="pri" data-act="go-shopping">去看清单</span></div>' +
-         '</div></div></div>';
-
+    // 没输入时 pantryResultsInner 返回的是引导语，不显示任何菜 —— 
+    // 用户明确要求「搜索框下面的都可以去掉」，只有搜索了才出结果。
+    h += '<div data-pantry-results="1">' + pantryResultsInner(q) + '</div>';
     h += navHTML('pantry');
     return h;
+  }
+
+  /**
+   * 搜索结果：这个食材能做的菜。
+   * 单独抽出来是为了让输入时只重画结果区、输入框节点原地不动
+   * （和食材弹层同一套办法，见 paintIngPicker 的注释）。
+   */
+  function pantryResultsInner(q) {
+    if (!q) {
+      return '<div class="note-mini" style="text-align:center;padding:26px 0;line-height:1.9">' +
+             '在上面输入一种食材<br>就能看到所有用得上它的菜</div>';
+    }
+    var hits = searchIngredients(q, {});
+    // 命中多个时按"名字正好等于输入"优先
+    var exact = hits.filter(function (g) {
+      return g.name === q || (g.alias || []).indexOf(q) !== -1;
+    })[0];
+    var h = '';
+
+    if (!hits.length) {
+      h += '<div class="card plain"><div class="cbg"></div>' +
+           '<div class="cbody" style="text-align:center;padding:20px">' +
+           '<div style="font-size:13px;font-weight:800;color:#111">没找到「' + esc(q) + '」</div>' +
+           '<div style="font-size:11.5px;font-weight:700;color:#8A8A8A;margin-top:6px">换个说法试试，比如「西红柿」或「土豆」</div>' +
+           '</div></div>';
+      return h;
+    }
+
+    var target = exact || hits[0];
+    h += dishesForIngredientHTML(target);
+    if (!exact && hits.length > 1) {
+      h += '<div class="sec"><span class="t">相近的食材</span></div>';
+      h += '<div class="chips">' + hits.slice(0, 10).map(function (g) {
+        return '<span class="chip" data-act="pantry-pick" data-id="' + g.id + '">' + esc(g.name) + '</span>';
+      }).join('') + '</div>';
+    }
+    return h;
+  }
+
+  function dishesForIngredientHTML(g) {
+    var dishes = dishesUsingIngredient(g.id);
+    var cookable = dishes.filter(function (d) { return d.canCook; });
+    var h = '<div class="ing-dishes">';
+    h += '<div class="idh">' +
+         '<span class="t">' + esc(g.name) + ' 能做的菜</span>' +
+         '<span class="c">' + dishes.length + ' 道</span>' +
+         (cookable.length ? '<span class="u">家里能做 ' + cookable.length + ' 道</span>' : '') +
+         '</div>';
+    if (!dishes.length) {
+      h += '<div class="note-mini" style="text-align:center;padding:10px 0">' +
+           '菜库里还没有用「' + esc(g.name) + '」的菜</div>';
+    } else {
+      dishes.forEach(function (d) {
+        var r = d.recipe;
+        h += '<div class="dish-mini" data-act="open-recipe" data-id="' + r.id + '">' +
+             '<span class="b">' + r.emoji + '</span>' +
+             '<div><div class="n">' + esc(r.name) +
+             (d.canCook ? ' <span class="need" style="color:#1F6B41;background:#E4F4E9">家里能做</span>' : '') +
+             '</div>' +
+             '<div class="m">' + C.fmtMinutes(r.minutes) + ' · ' + C.fmtCost(r.cost) +
+             (d.missing.length ? ' · 还缺 ' + d.missing.length + ' 样' : '') +
+             '</div></div>' +
+             '<span class="go">›</span></div>';
+      });
+    }
+    h += '</div>';
+    return h;
+  }
+
+  /**
+   * 只重画结果区，输入框不动。
+   * 和 paintIngPicker 同一个理由：整块 innerHTML 重建会换掉输入框节点、
+   * 焦点和输入法组合一起丢，表现就是"打不了字"。
+   */
+  function paintPantry() {
+    var scr = document.querySelector('.phone .scr');
+    if (!scr) return false;
+    // S.tab 在弹层打开时仍是 'pantry'，所以这一条判断的就是"底下那页是不是食材页"
+    if (S.tab !== 'pantry') return false;
+    var q = (S._pantryQ || '').trim();
+
+    // 输入框：正在打字时以 DOM 为准，不写回（免得打断输入法）
+    var input = scr.querySelector('[data-pantry-input]');
+    if (input) {
+      if (document.activeElement === input) {
+        if (!pantryComposing) S._pantryQ = input.value;
+      } else if (!pantryComposing && input.value !== (S._pantryQ || '')) {
+        input.value = S._pantryQ || '';
+      }
+    }
+
+    // 清除按钮的出现/消失：只有这一小块要跟着 q 变
+    var box = scr.querySelector('.pantry-search');
+    if (box) {
+      var hasClear = !!box.querySelector('[data-act="clear-pantry-search"]');
+      if (q && !hasClear) {
+        box.insertAdjacentHTML('beforeend', '<span class="st" data-act="clear-pantry-search">✕</span>');
+      } else if (!q && hasClear) {
+        box.removeChild(box.querySelector('[data-act="clear-pantry-search"]'));
+      }
+    }
+
+    // 结果区整块替换（没有输入框在里面，安全）
+    var res = scr.querySelector('[data-pantry-results]');
+    if (res) {
+      var html = q ? pantryResultsInner(q) : '<div class="note-mini" style="text-align:center;padding:26px 0;line-height:1.9">在上面输入一种食材<br>就能看到所有用得上它的菜</div>';
+      if (res.innerHTML !== html) res.innerHTML = html;
+    }
+    return true;
   }
 
   /* ---------- 渲染：P9 采购清单 ---------- */
@@ -1126,8 +1158,8 @@
     h += '<div class="sec" style="margin-top:2px"><span class="t">选菜偏好</span></div>';
     h += '<div class="srow" data-act="expand-cond"><span class="si">🎲</span><div>' +
          '<div class="sn">默认条件</div><div class="sd">' + condSummary(st.defaultConditions) + '</div></div><span class="sa">›</span></div>';
-    h += '<div class="srow" data-act="edit-staple"><span class="si">🧂</span><div>' +
-         '<div class="sn">常备调料</div><div class="sd">' + S.ingredients.filter(function (g) { return g.staple; }).length + ' 项 · 默认视为家里有</div></div><span class="sa">›</span></div>';
+    // 「常备调料」入口已按用户要求删除。数据层的 staple 逻辑（isStaple / stapleRemoved）
+    // 仍保留：它决定"家里有"判定，删掉的只是这个设置入口。
 
     h += '<div class="sec" style="margin-top:2px"><span class="t">同步</span></div>';
     if (sync) {
@@ -1648,7 +1680,12 @@
          '</label>';
 
     h += '<div data-pk="chips">' + pkChipsInner(p) + '</div>';
-    h += '<div class="filters" data-pk="filters">' + pkFiltersInner(p) + '</div>';
+    // 分类筛选单独加一个标题：这一排「蔬菜 / 肉蛋 / 水产…」和上面已选的食材 chip
+    // 外观接近，用户分不清哪个是分类、哪个是自己选的东西。加标题 + 换配色区分。
+    h += '<div class="filter-block">' +
+         '<div class="fb-lb">按分类看</div>' +
+         '<div class="filters" data-pk="filters">' + pkFiltersInner(p) + '</div>' +
+         '</div>';
     h += '<div data-pk="body">' + pkBodyInner(p) + '</div>';
     h += '<div data-pk="foot">' + pkFootInner(p) + '</div>';
     return sheet(h);
@@ -1915,6 +1952,14 @@
     refreshIngPicker();
   }
 
+  // 食材页（Tab）的搜索输入。和上面的弹层同一个套路：
+  // 写回状态 + 只重画结果区，输入框节点保持不动。
+  function onPantryInput(val) {
+    if (pantryComposing) return;
+    S._pantryQ = val;
+    paintPantry();
+  }
+
   /**
    * 重画食材弹层内部各区块，输入框节点原地不动。
    *
@@ -1982,6 +2027,128 @@
            '<div class="sheet-mask" data-act="close-sheet"><div class="sheet" data-stop="1">' +
            inner + '</div></div>' +
            SHEET_MARK;
+  }
+
+  /* ---------- Trigger Morph：弹层从被点的按钮形变展开 ----------
+     点任意按钮开弹层时，面板从**那颗按钮的形状**长出来，而不是从屏幕底部滑上来。
+     这样能说明「面板是我点的地方来的」。
+
+     两个必须做对的地方：
+       1. 起点实时量按钮的 getBoundingClientRect()（宽高都要）—— 按钮宽度随文案变，
+          硬编码会让面板从错误的尺寸开始长。
+       2. 圆角与尺寸一起插值：胶囊 999px → 面板圆角。只变尺寸不变圆角会像"方块长大"。
+
+     用 Web Animations API 而不是 CSS transition：需要能取消、能反向、能拿到 finished。 */
+  var _morphSrc = null;        // 触发这次展开的那颗按钮的矩形
+
+  // 事件委托里拿不到"哪个按钮被点"，在捕获阶段记下来。
+  //
+  // ⚠️ 记矩形而不是元素：onClick 处理完会 render()，scr.innerHTML 被整块换掉，
+  // 那颗按钮节点当场就脱离了文档（isConnected=false）。等动画开始时再去量，
+  // 拿到的是空矩形，形变会静默不播。pointerdown 时量好最稳 —— 那一刻
+  // 布局还没变，而且 pointerdown 和 click 之间不会发生重渲染。
+  document.addEventListener('pointerdown', function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var el = t.closest('[data-act],[data-tab]');
+    if (!el) { _morphSrc = null; return; }
+    var r = el.getBoundingClientRect();
+    _morphSrc = { left: r.left, top: r.top, width: r.width, height: r.height };
+  }, true);
+
+  function morphOpen(host) {
+    var mask = host.querySelector('.sheet-mask');
+    var sheetEl = host.querySelector('.sheet');
+    var br = _morphSrc;
+    _morphSrc = null;
+
+    // 用户关了动效、或者没记到触发源（例如页面刷新后直接进二级页）→ 用原来的滑入
+    if (!mask || !sheetEl || !br || !sheetEl.animate) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // 按钮已经滚出屏幕 / 尺寸为 0 → 别从一个看不见的地方长出来
+    if (!br.width || !br.height) return;
+    // 触发源不在视口里（例如用户滚到底部点了按钮、随后页面又回到顶部）：
+    // 从屏幕外的位置长出来会看到面板"从外面飞进来"，比直接滑入更奇怪。此时退回滑入。
+    var vh = window.innerHeight || 0;
+    var vw = window.innerWidth || 0;
+    if (br.top > vh || br.left > vw || br.top + br.height < 0 || br.left + br.width < 0) return;
+
+    // 面板最终位置：此刻它已在 DOM 里（mask 是 fixed + flex-end，面板贴底）
+    var tr = sheetEl.getBoundingClientRect();
+    if (!tr.width || !tr.height) return;
+
+    var dx = br.left - tr.left;
+    var dy = br.top - tr.top;
+
+    // 面板自己的入场动画（CSS 的 slideUp）让位给形变，否则两个动画打架
+    sheetEl.style.animation = 'none';
+
+    var dur = 520;
+    var ease = 'cubic-bezier(.22,.9,.24,1)';
+    var a1 = sheetEl.animate([
+      { transform: 'translate(' + dx + 'px,' + dy + 'px)',
+        width: br.width + 'px', height: br.height + 'px',
+        borderRadius: '999px', opacity: .55 },
+      { transform: 'translate(0,0)',
+        width: tr.width + 'px', height: tr.height + 'px',
+        borderRadius: '30px 30px 0 0', opacity: 1 }
+    ], { duration: dur, easing: ease, fill: 'both' });
+
+    // 内容延到 60% 才淡入 —— 早了文字会被拉伸变形
+    var inner = sheetEl.querySelector('.sheet-top') || sheetEl.firstElementChild;
+    if (inner) {
+      inner.animate([
+        { opacity: 0, transform: 'translateY(12px)' },
+        { opacity: 0, transform: 'translateY(12px)', offset: .6 },
+        { opacity: 1, transform: 'translateY(0)' }
+      ], { duration: dur, easing: 'ease-out', fill: 'both' });
+    }
+    mask.animate([{ opacity: 0 }, { opacity: 1 }],
+      { duration: dur, easing: 'ease-out', fill: 'both' });
+
+    // 动画结束把 fill 撤掉，否则面板会一直停在动画最后一帧（改尺寸会错位）
+    var restored = false;
+    function restore() {
+      if (restored) return;
+      restored = true;
+      try { a1.cancel(); } catch (err) {}
+      sheetEl.style.animation = '';
+    }
+    a1.finished.then(restore).catch(restore);
+    // 兜底：动画被中途取消 / 暂停（finished 永不 resolve）时也要还原，
+    // 否则那颗面板会一直带着"动画最后一帧"的几何，后续改尺寸就错位。
+    setTimeout(restore, dur + 120);
+  }
+
+  /**
+   * 二级页面的形变展开。
+   *
+   * 和弹层同一个意思，但二级页面是整屏内容，不能去动 .scr 的宽高
+   * （它是 flex:1 的滚动容器，动画宽高会把内容挤变形）。
+   * 所以改用 clip-path 从一个等于按钮矩形的窗口扩到整屏 ——
+   * 视觉上同样是"从我点的那颗按钮长出来"，但不碰布局。
+   */
+  function morphPage(scr) {
+    var br = _morphSrc;
+    _morphSrc = null;
+    if (!br || !scr || !scr.animate) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    var sr = scr.getBoundingClientRect();
+    if (!br.width || !br.height || !sr.width || !sr.height) return;
+
+    // 按钮矩形换算成 .scr 坐标系里的四条内缩边
+    var top = Math.max(0, br.top - sr.top);
+    var left = Math.max(0, br.left - sr.left);
+    var right = Math.max(0, sr.right - (br.left + br.width));
+    var bottom = Math.max(0, sr.bottom - (br.top + br.height));
+
+    var a = scr.animate([
+      { clipPath: 'inset(' + top + 'px ' + right + 'px ' + bottom + 'px ' + left + 'px round 16px)',
+        opacity: .55 },
+      { clipPath: 'inset(0px 0px 0px 0px round 0px)', opacity: 1 }
+    ], { duration: 520, easing: 'cubic-bezier(.22,.9,.24,1)', fill: 'both' });
+    a.finished.then(function () { try { a.cancel(); } catch (e) {} }).catch(function () {});
   }
 
   /* ---------- 主渲染 ---------- */
@@ -2079,8 +2246,19 @@
     }
 
     // 内容
+    var wasEmpty = !scr.firstChild;
+    var prevView = scr.dataset.view || '';
     scr.innerHTML = h;
     if (keepScroll > 0) scr.scrollTop = keepScroll;
+    // 进了二级页面（弹层之外的整屏页）→ 从刚点的按钮形变展开。
+    // ⚠️ 有弹层时不做：弹层自己会形变（morphOpen），两者都去消费同一个
+    //    按钮矩形，先跑的那个会把它清掉，后跑的就静默不播了。
+    //    弹层优先 —— 它才是用户"点的那颗按钮"最直接的反馈。
+    var nowView = (S.view && S.view.name) || ('tab:' + S.tab);
+    if (!wasEmpty && nowView !== prevView && S.view && S.view.name && !sheetHTMLPart) {
+      morphPage(scr);
+    }
+    scr.dataset.view = nowView;
 
     // ---- 弹层：独立宿主，不参与 .scr 的重建 ----
     if (!host) {
@@ -2103,6 +2281,8 @@
       // 整块重建后要把输入框内容同步回来（例如「清除搜索」后再进）
       var hi = host.querySelector('[data-ing-input]');
       if (hi && S._pick) hi.value = S._pick.q || '';
+      // 弹层刚建出来：从刚才点的那颗按钮形变展开（Trigger Morph）
+      morphOpen(host);
     }
 
     // 导航选中态：只改 class，不重建节点
@@ -2333,6 +2513,49 @@
         if (ci) ci.value = '';
         refreshIngPicker(); break;
       }
+
+      /* ---- 食材页（Tab）自己的搜索框 ---- */
+      case 'toggle-candidate': {
+        // 菜库里点「加入投票 / 已在投票」：把这道菜加进/移出当前候选
+        var vs = S.state.session;
+        if (!vs || sessionExpired() || vs.status !== 'voting') {
+          toast('没有进行中的投票');
+          break;
+        }
+        var idx = vs.candidates.indexOf(data.id);
+        var rn = recipe(data.id);
+        if (idx === -1) {
+          if (vs.candidates.length >= 8) { toast('候选最多 8 道'); break; }
+          vs.candidates.push(data.id);
+          toast('已加入投票：' + (rn ? rn.name : ''));
+        } else {
+          vs.candidates.splice(idx, 1);
+          // 把自己对这道菜的投票一起清掉，否则提交时会带上已移除的菜
+          if (vs.myVote) delete vs.myVote[data.id];
+          toast('已移出投票：' + (rn ? rn.name : ''));
+        }
+        save();
+        render();
+        break;
+      }
+      case 'clear-pantry-search': {
+        S._pantryQ = '';
+        // 和上面同理：输入框节点是长期的，清数据时要把它自己的值也清掉
+        var pi = document.querySelector('.scr [data-pantry-input]');
+        if (pi) pi.value = '';
+        paintPantry(); break;
+      }
+      case 'pantry-pick': {
+        // 点「相近的食材」里的某个 → 直接把搜索词换成它
+        var pg = S.ingIndex.byId[data.id];
+        if (pg) {
+          S._pantryQ = pg.name;
+          var pi2 = document.querySelector('.scr [data-pantry-input]');
+          if (pi2) pi2.value = pg.name;
+          paintPantry();
+        }
+        break;
+      }
       case 'add-this-ing':
         addThisIngredient(data.id); break;
       case 'ing-dish': {
@@ -2478,7 +2701,6 @@
         S._restoreScrollTop = 0;
         render(); break;
       }
-      case 'edit-staple': toast('常备调料管理：下一版接入'); break;
       case 'toast-action': if (S.toast && S.toast.action) S.toast.action(); S.toast = null; render(); break;
       case 'save-recipe': saveRecipeForm(); break;
       case 'add-ing': {
@@ -3004,6 +3226,7 @@
         var t = e.target;
         if (t && t.dataset) {
           if (t.dataset.ingInput) onIngInput(t.value);
+          if (t.dataset.pantryInput) onPantryInput(t.value);
           // 成员档案编辑页的名字输入：写回草稿，不重渲染（避免输入时失焦）
           if (t.dataset.memberField === 'name' && S._memberDraft) {
             S._memberDraft.name = t.value;
@@ -3014,17 +3237,22 @@
       // 拼字中重画列表会把候选词打断，用户感觉就是"打不了字"。
       document.addEventListener('compositionstart', function (e) {
         if (e.target && e.target.dataset && e.target.dataset.ingInput) ingComposing = true;
+        if (e.target && e.target.dataset && e.target.dataset.pantryInput) pantryComposing = true;
       });
       document.addEventListener('compositionend', function (e) {
         if (e.target && e.target.dataset && e.target.dataset.ingInput) {
           ingComposing = false;
           onIngInput(e.target.value);
         }
+        if (e.target && e.target.dataset && e.target.dataset.pantryInput) {
+          pantryComposing = false;
+          onPantryInput(e.target.value);
+        }
       });
-      // 回车收起键盘
+      // 回车收起键盘（食材页那个搜索框也一样）
       document.addEventListener('keydown', function (e) {
         var t = e.target;
-        if (t && t.dataset && t.dataset.ingInput && e.key === 'Enter') {
+        if (t && t.dataset && (t.dataset.ingInput || t.dataset.pantryInput) && e.key === 'Enter') {
           e.preventDefault();
           t.blur();
         }

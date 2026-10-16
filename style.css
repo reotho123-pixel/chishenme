@@ -49,7 +49,10 @@ button,[data-act],.chip,.fchip,.nav-i,.btn-main,.btn-sub{touch-action:manipulati
 .scr{
   flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
-  padding:22px 17px 14px;display:flex;flex-direction:column;gap:13px;
+  /* 顶部留白收窄：今天页原来的「日期吊牌 + 问候」已删掉，主卡要能顶到最上面。
+     不用 env(safe-area-inset-top)：status-bar-style 已是 default，
+     视口本身就从状态栏下方开始（该值恒为 0），其余 5 个 App 也都没写。 */
+  padding:6px 17px 14px;display:flex;flex-direction:column;gap:13px;
 }
 /* 底部导航：固定在内容区下方，不参与滚动 */
 .nav-dock{
@@ -322,6 +325,13 @@ hr.dash{border:none;border-top:2.5px dashed #D8D8D8;margin:0 0 11px}
 .rrow .dots5 i.off{background:#fff;border-color:#BFBFBF}
 .rrow .was{font-size:10px;font-weight:800;color:#6E5A60;background:#F2ECE8;border-radius:7px;
   padding:3px 7px;margin-left:auto;white-space:nowrap}
+/* 菜库行里的「加入投票」：和「做过」标签同一位置（行尾）。
+   未加入=粉底黑边（可点），已加入=黑底粉字（状态）。 */
+.rrow .vote-add{font-size:10.5px;font-weight:800;color:#111;background:#F7C8D4;
+  border:2px solid #111;border-radius:8px;padding:4px 8px;margin-left:auto;
+  white-space:nowrap;cursor:pointer;box-shadow:1.5px 1.5px 0 #111}
+.rrow .vote-add:active{transform:translate(1.5px,1.5px);box-shadow:none}
+.rrow .vote-add.on{background:#141414;color:#F7C8D4;box-shadow:none}
 .psub{font-size:11px;font-weight:800;color:#7A7A7A;padding:0 4px}
 
 /* ---------- 投票 ---------- */
@@ -549,6 +559,21 @@ html[data-standalone="1"] .sheet{padding-bottom:22px}
 /* 结果区 */
 .sheet .chips{gap:7px}
 .sheet .chip{cursor:pointer}
+
+/* 分类筛选区：和上面「已选食材」的 chip 区分开。
+   两者原本都是白底黑边胶囊，用户看不出哪个是"我选的"、哪个是"分类"。
+   这里给分类区一个淡灰底 + 小标题，并把它做成"选项"的样子（无阴影、更扁）。 */
+.filter-block{
+  display:flex;flex-direction:column;gap:7px;
+  background:#F2F2F2;border:2.5px dashed #C9C9C9;border-radius:14px;
+  padding:9px 10px 10px;
+}
+.filter-block .fb-lb{font-size:10.5px;font-weight:800;color:#7A7A7A;letter-spacing:.6px}
+.filter-block .fchip{
+  background:#fff;border:2px solid #B5B5B5;box-shadow:none;
+  color:#555;font-weight:700;padding:5px 11px;
+}
+.filter-block .fchip.on{background:#141414;border-color:#111;color:#fff}
 
 /* 真·输入框（不能用 prompt，弹窗会被浏览器拦） */
 .search input{
