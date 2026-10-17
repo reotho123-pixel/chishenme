@@ -967,35 +967,131 @@
   }
 
   /**
-   * 生成小红书搜索地址。
+   * 生成小红书的搜索地址。
    *
-   * ⚠️ 路径必须带结尾斜杠 `search_result/`。
-   * 写成 `search_result?keyword=`（少斜杠）时小红书会 301 跳到
-   * `http://www.xiaohongshu.com/search_result/?keyword=` —— **降级成 http**。
-   * iOS 加到主屏后在独立窗口里，这种 http 跳转会被拦掉，
-   * 表现就是"点了没反应 / 链接失效"。带斜杠是直接 200，不跳转。
-   * （2026-10-16 实测：不带斜杠 301、带斜杠 200。）
+   * ⚠️ 网页版这条路走不通（2026-10-16 实测）：
+   *   /search_result/?keyword=…  → 标题正确（「番茄 做法 - 小红书搜索」），
+   *   但正文只有「登录后查看搜索结果」——**未登录一律不给看**。
+   *   带不带斜杠、加 source/type 参数、换 /explore 路径，全都一样；
+   *   /explore?keyword= 更是把关键词整个丢掉、退化成首页推荐流。
+   *   这是小红书的产品策略，不是参数问题，改 URL 绕不过去。
+   *
+   * 所以优先用 App scheme 直接跳进小红书 App（已登录的手机体验最好），
+   * 跳不动再退回网页 / 复制关键词。见 openXhs()。
    */
-  function xhsSearchUrl(keyword) {
+  function xhsWebUrl(keyword) {
     var q = encodeURIComponent(String(keyword || '').trim() + ' 做法');
+    // 带结尾斜杠（少斜杠会被 301 到 http，独立 App 里会被拦）
     return 'https://www.xiaohongshu.com/search_result/?keyword=' + q;
   }
 
   /**
    * 「去小红书找」按钮。
-   * 用真 `<a target="_blank">`（主屏 App 里 window.open 常被拦），
-   * 只带搜索词过去 —— 小红书没有公开 API，浏览器也不允许抓它的页面内容。
+   * 用真 `<a>` + data-act，点击时先试 App scheme（见 openXhs）。
    */
   function searchOutsideHTML(name, opts) {
     opts = opts || {};
     if (!name) return '';
     var tip = opts.tip || ('菜库里没有的菜，去站外看做法。<br>看到想做的，回来用「+ 加菜」存进来。');
     return '<div class="outside">' +
-           '<a class="outside-btn xhs" target="_blank" rel="noopener noreferrer" ' +
-           'href="' + xhsSearchUrl(name) + '">' +
+           '<a class="outside-btn xhs" data-act="open-xhs" data-name="' + esc(name) + '" ' +
+           'href="' + xhsWebUrl(name) + '" target="_blank" rel="noopener noreferrer">' +
            '<span class="oi">📕</span><span>' + (opts.label || '去小红书找') + '</span></a>' +
            '<div class="outside-tip">' + tip + '</div>' +
            '</div>';
+  }
+
+  /**
+   * 打开小红书搜这道菜。三层降级，保证"点了总有反应"：
+   *   1. App scheme（xhsdiscover://）—— 装了小红书就直接跳 App，体验最好
+   *   2. 网页搜索页 —— 没装 App 时退到浏览器（会要求登录，但至少能到对的地方）
+   *   3. 复制关键词 —— 前两层都没动静时，把「番茄 做法」复制好，让她自己粘
+   *
+   * 判断"App 没装"的办法：scheme 跳转后页面会进后台（visibilitychange）。
+   * 若 1.2 秒内没进后台，就认为没装，接着走下一层。
+   */
+  function openXhs(name) {
+    var kw = String(name || '').trim();
+    if (!kw) return;
+    var query = kw + ' 做法';
+
+    var fellBack = false;
+    var timer = null;
+
+    function cleanup() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', onVis);
+    }
+    function onVis() {
+      // 跳走了 → 说明 App 装上了，不用再降级
+      if (document.hidden) { fellBack = true; cleanup(); }
+    }
+
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', onVis);
+
+    // 1) 试 App scheme
+    //    用隐藏 iframe 触发而不是 location.href：scheme 失败时页面不会白屏、
+    //    也不会往历史里塞一条坏记录（iOS 上 location.href 跳失败经常把
+    //    整个 WebView 卡在一次失败的导航上）。
+    var schemeUrl = 'xhsdiscover://search/result?keyword=' + encodeURIComponent(query);
+    try {
+      var fr = document.createElement('iframe');
+      fr.style.cssText = 'display:none;width:0;height:0;border:0';
+      fr.src = schemeUrl;
+      document.body.appendChild(fr);
+      setTimeout(function () { if (fr.parentNode) fr.parentNode.removeChild(fr); }, 1200);
+    } catch (e) {
+      try { window.location.href = schemeUrl; } catch (e2) {}
+    }
+
+    // 2) 1.2 秒还没跳走 → 退到网页；再不行 → 复制
+    timer = setTimeout(function () {
+      cleanup();
+      if (fellBack) return;
+      var web = xhsWebUrl(kw);
+      // 用 location.href 而不是 window.open：独立 App 里 open 常被拦
+      try {
+        window.location.href = web;
+        // 3) 再等一会儿，如果连网页都没打开（离线/被拦），就复制关键词兜底
+        setTimeout(function () {
+          if (document.hidden) return;
+          copyXhsKeyword(query);
+        }, 1500);
+      } catch (e) {
+        copyXhsKeyword(query);
+      }
+    }, 1200);
+  }
+
+  /** 复制关键词并提示，作为最后一层兜底。 */
+  function copyXhsKeyword(query) {
+    var done = function () {
+      toast('已复制「' + query + '」，去小红书搜它');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(query).then(done, function () {
+        // 复用采购清单那套老式复制（execCommand），独立 App 里更兼容
+        var ta = document.createElement('textarea');
+        ta.value = query;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        done();
+      });
+    } else {
+      var ta2 = document.createElement('textarea');
+      ta2.value = query;
+      ta2.style.position = 'fixed'; ta2.style.opacity = '0';
+      document.body.appendChild(ta2);
+      ta2.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta2);
+      done();
+    }
   }
 
   /**
@@ -2815,6 +2911,13 @@
         var ci = document.querySelector('.sheet-host [data-ing-input]');
         if (ci) ci.value = '';
         refreshIngPicker(); break;
+      }
+      case 'open-xhs': {
+        // 走三级降级：App scheme → 网页 → 复制关键词（见 openXhs 注释）
+        // preventDefault 掉 <a> 的默认跳转，改由 openXhs 自己按顺序试
+        if (e && e.preventDefault) e.preventDefault();
+        openXhs(data.name);
+        break;
       }
       case 'new-ingredient': {
         // 库里没有这个食材 → 直接用当前搜索词建一个（再让用户挑分类）

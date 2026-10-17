@@ -2,7 +2,7 @@
    待会吃什么 · Service Worker
    改代码后请把下面的 CACHE 版本号 +1，已安装用户才会拿到新版
    ============================================================ */
-const CACHE = 'chishenme-v21';
+const CACHE = 'chishenme-v22';
 
 const ASSETS = [
   './',
