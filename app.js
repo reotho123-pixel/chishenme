@@ -758,6 +758,12 @@
       h += '<div class="btn-sub" style="opacity:.6">今晚菜单已满（3 道）</div>';
     }
 
+    // 菜库里这道菜的用料/做法可能不够细（尤其自建的），给一个去小红书看真实做法的入口
+    h += searchOutsideHTML(r.name, {
+      label: '看「' + r.name + '」的做法',
+      tip: '菜库里只记了用料。想看视频或更细的步骤，去小红书搜。'
+    });
+
     h += navHTML('library');
     return h;
   }
@@ -961,18 +967,34 @@
   }
 
   /**
-   * 把这个食材拿去小红书搜做法。
-   * 真 `<a target="_blank">`（主屏 App 里 window.open 常被拦），
+   * 生成小红书搜索地址。
+   *
+   * ⚠️ 路径必须带结尾斜杠 `search_result/`。
+   * 写成 `search_result?keyword=`（少斜杠）时小红书会 301 跳到
+   * `http://www.xiaohongshu.com/search_result/?keyword=` —— **降级成 http**。
+   * iOS 加到主屏后在独立窗口里，这种 http 跳转会被拦掉，
+   * 表现就是"点了没反应 / 链接失效"。带斜杠是直接 200，不跳转。
+   * （2026-10-16 实测：不带斜杠 301、带斜杠 200。）
+   */
+  function xhsSearchUrl(keyword) {
+    var q = encodeURIComponent(String(keyword || '').trim() + ' 做法');
+    return 'https://www.xiaohongshu.com/search_result/?keyword=' + q;
+  }
+
+  /**
+   * 「去小红书找」按钮。
+   * 用真 `<a target="_blank">`（主屏 App 里 window.open 常被拦），
    * 只带搜索词过去 —— 小红书没有公开 API，浏览器也不允许抓它的页面内容。
    */
-  function searchOutsideHTML(name) {
+  function searchOutsideHTML(name, opts) {
+    opts = opts || {};
     if (!name) return '';
-    var q = encodeURIComponent(name + ' 做法');
+    var tip = opts.tip || ('菜库里没有的菜，去站外看做法。<br>看到想做的，回来用「+ 加菜」存进来。');
     return '<div class="outside">' +
            '<a class="outside-btn xhs" target="_blank" rel="noopener noreferrer" ' +
-           'href="https://www.xiaohongshu.com/search_result?keyword=' + q + '">' +
-           '<span class="oi">📕</span><span>去小红书找</span></a>' +
-           '<div class="outside-tip">菜库里没有的菜，去站外看做法。<br>看到想做的，回来用「+ 加菜」存进来。</div>' +
+           'href="' + xhsSearchUrl(name) + '">' +
+           '<span class="oi">📕</span><span>' + (opts.label || '去小红书找') + '</span></a>' +
+           '<div class="outside-tip">' + tip + '</div>' +
            '</div>';
   }
 
