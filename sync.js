@@ -300,6 +300,17 @@
           merged.stapleRemoved = Object.keys(set);
           touched = true;
         }
+        // 自建食材：按 id 合并（两台手机各自加的都要留下）
+        if (rc.customIngredients && rc.customIngredients.length) {
+          var mine = (merged.customIngredients || []).slice();
+          var seen = {};
+          mine.forEach(function (x) { seen[x.id] = 1; });
+          rc.customIngredients.forEach(function (x) {
+            if (!x || !x.id || seen[x.id]) return;
+            mine.push(x); touched = true;
+          });
+          merged.customIngredients = mine;
+        }
       }
 
       // pantry.json: 最后写入胜
@@ -363,6 +374,7 @@
           customRecipes: state.customRecipes,
           recipeOverrides: state.recipeOverrides,
           stapleRemoved: state.stapleRemoved,
+          customIngredients: state.customIngredients || [],
           defaultConditions: state.defaultConditions,
           updatedAt: new Date().toISOString()
         }, shaKey: 'config' },

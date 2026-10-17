@@ -60,6 +60,10 @@ button,[data-act],.chip,.fchip,.nav-i,.btn-main,.btn-sub{touch-action:manipulati
      不用 env(safe-area-inset-top)：status-bar-style 已是 default，
      视口本身就从状态栏下方开始（该值恒为 0），其余 5 个 App 也都没写。 */
   padding:6px 17px 14px;display:flex;flex-direction:column;gap:13px;
+  /* 右滑返回时 .scr 会整体平移，必须有实底色，
+     否则会从下面那层（.page-under）透出来，看着像两页叠在一起。 */
+  background:#fff;position:relative;z-index:1;
+  will-change:transform;
 }
 /* 底部导航：固定在内容区下方，不参与滚动 */
 .nav-dock{
@@ -654,6 +658,45 @@ html[data-standalone="1"] .sheet{padding-bottom:22px}
 .dish-mini .go{
   margin-left:auto;font-size:13px;color:#8A8A8A;
 }
+
+/* ---------- 「去小红书找」 ----------
+   菜库里没有的菜，去站外看做法。
+   这是一个真 <a> 标签，不是 JS 跳转 —— 主屏 App 里 window.open 会被拦。 */
+.outside{margin-top:12px;padding-top:12px;border-top:2px dashed #C9C9C9}
+.outside-btn{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  background:#fff;border:2.5px solid #111;border-radius:13px;padding:11px 0;
+  font-size:12.5px;font-weight:800;color:#111;text-decoration:none;cursor:pointer;
+  box-shadow:2.5px 2.5px 0 #D93A2B;
+}
+.outside-btn .oi{font-size:15px}
+.outside-btn:active{transform:translate(2px,2px);box-shadow:none}
+.outside-tip{
+  font-size:10.5px;font-weight:700;color:#8A8A8A;line-height:1.7;
+  text-align:center;margin-top:9px;
+}
+
+/* ---------- 新建食材（食材选择器底部） ---------- */
+.newing{
+  background:#FFF7E8;border:2.5px dashed #E0B060;border-radius:14px;
+  padding:11px 12px 12px;
+}
+.newing .ni-t{
+  font-size:11.5px;font-weight:800;color:#8A6520;text-align:center;margin-bottom:9px;
+}
+
+/* ---------- 右滑返回的底层页（推拉门） ----------
+   拖动时：.page-under 铺在 .scr 下面（上一级页面），.scr 整体右移把下层露出来。
+   上级页面**留在原地**、只做极轻微的缩放，这才是"亲手推门"的感觉；
+   做成左右两个平级页面横向切换就错了（技能库 fx7 明确纠正过）。 */
+.page-under{
+  position:absolute;left:0;right:0;top:0;bottom:0;
+  background:#fff;overflow:hidden;pointer-events:none;
+  transform-origin:50% 50%;
+  will-change:transform;
+}
+/* 门被推开时，上层不能透出下层 —— 底色必须是实的 */
+.phone{position:relative}
 
 /* ---------- 同步状态细条 ---------- */
 .sync-bar{

@@ -816,9 +816,9 @@
 
     h += '<div class="note-mini">过敏原由食材自动识别，不可手动改。</div>';
 
-    h += '<div class="card"><div class="cbody"><div class="chead"><span class="nm">小提示</span><span class="mt">可选</span></div>' +
-         '<div class="input' + (cur.tip ? '' : ' ph') + '" style="width:100%" data-form="tip">' + (cur.tip ? esc(cur.tip) : '一句话小提示') + '</div>' +
-         '</div></div>';
+    // 「小提示」那张卡片已按用户要求删除。
+    // 数据层的 tip 字段保留（内置菜里带着它，详情页现在也不展示），
+    // 删掉的只是这个填写入口。
 
     h += '<div class="btn-main" data-act="save-recipe">' + (isNew ? '创 建 菜 品' : '保 存') + '</div>';
     if (!isNew && r.builtin && r._overridden) {
@@ -877,11 +877,16 @@
     var h = '';
 
     if (!hits.length) {
+      // 库里没有 → 直接给「新建食材」入口（在这页搜到找不到最自然）
       h += '<div class="card plain"><div class="cbg"></div>' +
            '<div class="cbody" style="text-align:center;padding:20px">' +
            '<div style="font-size:13px;font-weight:800;color:#111">没找到「' + esc(q) + '」</div>' +
-           '<div style="font-size:11.5px;font-weight:700;color:#8A8A8A;margin-top:6px">换个说法试试，比如「西红柿」或「土豆」</div>' +
+           '<div style="font-size:11.5px;font-weight:700;color:#8A8A8A;margin-top:6px">' +
+           '食材库里还没有这个。<br>新建之后就能把它加进菜里。</div>' +
            '</div></div>';
+      h += '<div class="newing" style="margin-top:2px">' +
+           '<div class="btn-main" data-act="new-ingredient-inline">+ 新建食材「' + esc(q) + '」</div>' +
+           '</div>';
       return h;
     }
 
@@ -922,8 +927,53 @@
              '<span class="go">›</span></div>';
       });
     }
+    h += searchOutsideHTML(g.name);
     h += '</div>';
     return h;
+  }
+
+  /**
+   * 新建食材：选个分类就能存。
+   * 名字来自用户刚才搜的那个词（比如「兔肉」），不用再打一遍。
+   */
+  function renderNewIngredient() {
+    var CATS = [['vegetable','蔬菜'],['protein','肉蛋'],['seafood','水产'],
+                ['soy','豆制品'],['staple','主食'],['dry','干货'],
+                ['fruit','水果'],['condiment','调料'],['other','其他']];
+    var cat = S._newIngCat || 'protein';
+    var h = '';
+    h += '<div class="sheet-top"><div class="grip"></div>' +
+         '<div class="st">新建食材</div>' +
+         '<div class="st-sub">存起来以后就能搜到、也能加进菜里</div></div>';
+    h += '<div class="card plain"><div class="cbg"></div>' +
+         '<div class="cbody" style="text-align:center;padding:14px">' +
+         '<div style="font-size:19px;font-weight:900;color:#111">' + esc(S._newIngName || '') + '</div>' +
+         '</div></div>';
+    h += '<div class="frow" style="align-items:flex-start;flex-direction:column;gap:9px">' +
+         '<span class="fl" style="flex:none">放在哪一类</span>' +
+         '<span class="pills">' + CATS.map(function (c) {
+           return '<span class="pill' + (cat === c[0] ? ' on' : '') +
+                  '" data-act="new-ing-cat" data-id="' + c[0] + '">' + c[1] + '</span>';
+         }).join('') + '</span></div>';
+    h += '<div class="btn-main" data-act="new-ing-save">新 建 食 材</div>';
+    h += '<div class="btn-sub" data-act="new-ing-cancel">取消</div>';
+    return sheet(h);
+  }
+
+  /**
+   * 把这个食材拿去小红书搜做法。
+   * 真 `<a target="_blank">`（主屏 App 里 window.open 常被拦），
+   * 只带搜索词过去 —— 小红书没有公开 API，浏览器也不允许抓它的页面内容。
+   */
+  function searchOutsideHTML(name) {
+    if (!name) return '';
+    var q = encodeURIComponent(name + ' 做法');
+    return '<div class="outside">' +
+           '<a class="outside-btn xhs" target="_blank" rel="noopener noreferrer" ' +
+           'href="https://www.xiaohongshu.com/search_result?keyword=' + q + '">' +
+           '<span class="oi">📕</span><span>去小红书找</span></a>' +
+           '<div class="outside-tip">菜库里没有的菜，去站外看做法。<br>看到想做的，回来用「+ 加菜」存进来。</div>' +
+           '</div>';
   }
 
   /**
@@ -1489,6 +1539,57 @@
     'broccoli', 'cabbage', 'carrot', 'white-radish', 'shiitake', 'cucumber', 'eggplant', 'lettuce'
   ];
 
+  /**
+   * 把内置食材和自建食材合并，并重建索引。
+   * 每次自建食材变动后都要调一次（否则搜不到、做菜时也认不得）。
+   */
+  function rebuildIngredients() {
+    var builtin = S.builtinIngredients || [];
+    var custom = (S.state && S.state.customIngredients) || [];
+    S.ingredients = builtin.concat(custom);
+    S.ingIndex = C.buildIngredientIndex(S.ingredients);
+  }
+
+  /**
+   * 新建一个自建食材。
+   * 存进 state.customIngredients（跟着同步走），然后重建索引。
+   * id 加 'my-ing-' 前缀，跟内置的 id 空间分开，不会撞。
+   */
+  function addCustomIngredient(name, category) {
+    name = String(name || '').trim();
+    if (!name) { toast('请填写食材名'); return null; }
+    if (name.length > 8) { toast('名字太长了（最多 8 个字）'); return null; }
+
+    // 重名检查：内置的也算，免得"兔肉"加两遍
+    var dup = S.ingredients.filter(function (g) { return g.name === name; })[0];
+    if (dup) { toast('已经有「' + name + '」了'); return dup; }
+
+    if (!S.state.customIngredients) S.state.customIngredients = [];
+    var ing = {
+      id: 'my-ing-' + Date.now(),
+      name: name,
+      alias: [],
+      category: category || 'other',
+      staple: false,
+      allergens: [],
+      custom: true              // 标记出处，界面上好区分
+    };
+    S.state.customIngredients.push(ing);
+    save();
+    rebuildIngredients();
+    return ing;
+  }
+
+  /** 删掉一个自建食材（内置的删不掉）。 */
+  function removeCustomIngredient(id) {
+    if (!S.state.customIngredients) return;
+    S.state.customIngredients = S.state.customIngredients.filter(function (x) { return x.id !== id; });
+    // 家里的存货、菜的用料里也一并清掉，免得留下认不得的 id
+    S.state.pantry.items = (S.state.pantry.items || []).filter(function (x) { return x !== id; });
+    save();
+    rebuildIngredients();
+  }
+
   // 食材搜索：名字、别名都匹配
   function searchIngredients(q, opts) {
     opts = opts || {};
@@ -1734,6 +1835,16 @@
     var mode = p.mode || 'pantry';
     var sel = p.sel || [];
     var h = '';
+
+    // 搜了但库里没有 → 给一个「新建食材」的入口（用户要加兔肉这类）
+    var q = (p.q || '').trim();
+    if (q && !searchIngredients(q, {}).length) {
+      h += '<div class="newing">' +
+           '<div class="ni-t">食材库里没有「' + esc(q) + '」</div>' +
+           '<div class="btn-main" data-act="new-ingredient">+ 新建食材「' + esc(q) + '」</div>' +
+           '</div>';
+    }
+
     if (mode === 'pantry') {
       h += '<div class="btn-main" data-act="ing-done">完 成（' + sel.length + ' 样）</div>';
     } else if (mode === 'form') {
@@ -1781,13 +1892,8 @@
         render();
       } });
       return;
-    } else if (field === 'tip') {
-      promptInput('小提示（可留空）', S._draft.tip || '', { onOk: function (v) {
-        S._draft.tip = v.trim();
-        render();
-      } });
-      return;
     }
+    // 「小提示」字段的编辑分支已随表单那张卡片删除
     render();
   }
 
@@ -2039,7 +2145,7 @@
    *   2. 再把这层弹层叠上去
    * 弹层关掉后 S.view 变回 null，底层那一页自然还在。
    */
-  var SHEET_VIEWS = { random: 1, askInput: 1, syncConfirm: 1, confirm: 1, ingPicker: 1 };
+  var SHEET_VIEWS = { random: 1, askInput: 1, syncConfirm: 1, confirm: 1, ingPicker: 1, newIngredient: 1 };
 
   /** 按给定的视图/标签页画一页（不含任何"浮层"叠加逻辑）。 */
   function renderPage(view, tab) {
@@ -2051,6 +2157,7 @@
     if (view && view.name === 'random') return renderRandomSheet(!!view.params.expanded);
     if (view && view.name === 'sync') return renderSync();
     if (view && view.name === 'ingPicker') return renderIngredientPicker(S._pick);
+    if (view && view.name === 'newIngredient') return renderNewIngredient();
     if (view && view.name === 'askInput') return renderAskInput();
     if (view && view.name === 'syncConfirm') return renderSyncConfirm();
     if (view && view.name === 'confirm') return renderConfirm();
@@ -2153,6 +2260,14 @@
     var prevView = scr.dataset.view || '';
     scr.innerHTML = h;
     if (keepScroll > 0) scr.scrollTop = keepScroll;
+    // ⚠️ 每次渲染都把右滑转场留下的行内 transform 清掉。
+    //    render() 只换 innerHTML，碰不到 .scr 自己的 style；如果不管，
+    //    一次右滑之后页面会**永久偏在屏幕外**（平移到哪儿就停在哪儿）。
+    //    手势提交/取消时也会清，这里是兜底，防止任何路径漏掉。
+    if (scr.style.transform) { scr.style.transform = ''; scr.style.transition = 'none'; }
+    // 底层的临时页也一并收掉（同理：不能让它留在 DOM 里）
+    var strayUnder = shell.querySelector('.page-under');
+    if (strayUnder && strayUnder.parentNode) strayUnder.parentNode.removeChild(strayUnder);
     // 进了二级页面（弹层之外的整屏页）→ 从刚点的按钮形变展开。
     // ⚠️ 有弹层时不做：弹层自己会形变（morphOpen），两者都去消费同一个
     //    按钮矩形，先跑的那个会把它清掉，后跑的就静默不播了。
@@ -2214,46 +2329,174 @@
        · 卡片级的手势在 pointerdown 时就把行"锁"住，避免中途被滚动抢走
        · 不碰 touchend/touchmove 的 preventDefault（会吃掉 click，见 lockZoom 的注释） */
 
-  var SWIPE_MIN = 46;        // 触发返回/删除的最小横向位移（px）
   var SWIPE_DIR = 1.6;       // 横向要大于纵向的多少倍才算横向滑动
+  // （原来的 SWIPE_MIN=46px 阈值已不用：右滑返回改成跟手转场后，
+  //   临界值按页宽算（55%），见 onPageSwipeEnd。卡片删除有自己的 DEL_OPEN。）
 
-  /** 返回上一级：和点左上角「←」完全同一条路径。 */
-  function goBack() {
-    if (!S.view || !S.view.name) return false;
-    // 弹层有各自的关闭方式，不走"返回上一页"
-    if (SHEET_VIEWS[S.view.name]) return false;
-    S.view = null;
-    render();
-    return true;
+  // ---- 子页面右滑返回：推拉门手势转场 ----
+  // 按技能库 fx7 的做法：**上级页面留在原地**，当前页像门一样被推出去。
+  // 拖动进度完全跟手；松手只按距离判定（速度只用于辨别方向，不让轻扫直接完成）。
+  //
+  // 实现方式：拖之前先把上一级页面铺到 .scr 下面（.page-under），
+  // 然后平移 .scr 把下面那层露出来。提交时再真正走一次渲染。
+  var _pg = null;
+  var _pgRaf = null;
+
+  /** 去掉导航和弹层标记，只留页面内容（给底层用，导航在 dock 里已经有了）。 */
+  function pageContentOnly(html) {
+    var out = html;
+    var np = out.split(NAV_MARK);
+    if (np.length >= 3) out = np[0] + np.slice(2).join('');
+    var sp = out.split(SHEET_MARK);
+    if (sp.length >= 3) out = sp[0] + sp.slice(2).join('');
+    return out;
   }
 
-  // ---- 子页面右滑返回 ----
-  var _pg = null;
+  function applyPageSwipe() {
+    var g = _pg;
+    if (!g) return;
+    g.scr.style.transform = 'translate3d(' + (g.p * g.W).toFixed(2) + 'px,0,0)';
+    // 底层做极轻微的缩放，制造"门后那层被压了一下"的层次
+    var k = Math.max(0.96, Math.min(1, 1 - g.p * 0.04));
+    g.under.style.transform = 'scale(' + k.toFixed(4) + ')';
+  }
+
   function onPageSwipeStart(e) {
-    // 只在二级页面生效（有返回箭头的那些），弹层自己有关闭方式
+    // 只在二级页面生效；弹层有各自的关闭方式
     if (!S.view || !S.view.name) { _pg = null; return; }
     if (SHEET_VIEWS[S.view.name]) { _pg = null; return; }
-    // 从屏幕最左边 40px 内起手才算"返回手势"，避免和别的手势打架
+    // 从屏幕最左边 40px 内起手才算"返回手势"
     if (e.clientX > 40) { _pg = null; return; }
-    _pg = { x0: e.clientX, y0: e.clientY, locked: false, done: false };
+
+    var shell = document.querySelector('.phone');
+    var scrEl = shell ? shell.querySelector('.scr') : null;
+    if (!shell || !scrEl) { _pg = null; return; }
+
+    var under = shell.querySelector('.page-under');
+    if (!under) {
+      under = document.createElement('div');
+      under.className = 'page-under';
+      shell.insertBefore(under, scrEl);     // 插在 .scr 之前 = 在它下面
+    }
+    under.innerHTML = pageContentOnly(renderPage(null, S.tab));
+    under.style.transform = 'scale(1)';
+    scrEl.style.transition = 'none';
+
+    _pg = {
+      x0: e.clientX, y0: e.clientY, x: e.clientX,
+      locked: false, p: 0,
+      scr: scrEl, under: under,
+      W: shell.clientWidth || 358
+    };
   }
+
   function onPageSwipeMove(e) {
-    if (!_pg || _pg.done) return;
-    var dx = e.clientX - _pg.x0;
-    var dy = e.clientY - _pg.y0;
-    if (!_pg.locked) {
-      // 还判断不出方向：横向不够明显就先不动，让页面正常滚动
-      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
-      if (Math.abs(dx) < Math.abs(dy) * SWIPE_DIR) { _pg = null; return; }
-      _pg.locked = true;
+    var g = _pg;
+    if (!g) return;
+    var dx = e.clientX - g.x0;
+    var dy = e.clientY - g.y0;
+
+    if (!g.locked) {
+      // 还判断不出方向：位移太小就等，纵向为主就放手让页面滚动
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (Math.abs(dx) < Math.abs(dy) * SWIPE_DIR) { cancelPageSwipe(); return; }
+      g.locked = true;
     }
-    if (dx >= SWIPE_MIN) {
-      _pg.done = true;
-      _pg = null;
-      goBack();
-    }
+
+    g.x = e.clientX;
+    // 1:1 跟手，拖动中不缓动；两侧加橡皮筋（往左推不动、往右最多到满）
+    var p = dx / g.W;
+    if (p < 0) p *= 0.32;
+    else if (p > 1) p = 1 + (p - 1) * 0.32;
+    g.p = p;
+    applyPageSwipe();
+    e.preventDefault();
   }
-  function onPageSwipeEnd() { _pg = null; }
+
+  /** 收尾：从当前进度指数缓动到目标，结束后回调。 */
+  function settlePageSwipe(to, done) {
+    var g = _pg;
+    if (!g) { done(); return; }
+    if (_pgRaf) { cancelAnimationFrame(_pgRaf); _pgRaf = null; }
+
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || to === g.p) { g.p = to; applyPageSwipe(); done(); return; }
+
+    // ⚠️ 不能只靠 rAF：窗口被遮挡 / 后台标签页时 rAF 会完全停摆
+    //    （技能库里明确记着这条：内嵌预览里"动画不动"不代表代码有问题，
+    //     但更糟的是回调永不触发 → 页面卡在半路、底层页也撤不掉）。
+    // 所以加一个"唯一收尾"守卫 + 超时兜底：动画正常走完走前者，
+    // 走不到就由兜底强制结束。
+    var finished = false;
+    function finish() {
+      if (finished) return;
+      finished = true;
+      if (_pgRaf) { cancelAnimationFrame(_pgRaf); _pgRaf = null; }
+      done();
+    }
+
+    var last = performance.now();
+    function step(now) {
+      if (!_pg) { finish(); return; }
+      var dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      _pg.p += (to - _pg.p) * (1 - Math.exp(-dt * 11));
+      if (Math.abs(to - _pg.p) < 0.003) {
+        _pg.p = to;
+        applyPageSwipe();
+        finish();
+        return;
+      }
+      applyPageSwipe();
+      _pgRaf = requestAnimationFrame(step);
+    }
+    _pgRaf = requestAnimationFrame(step);
+    // 兜底：正常收尾约 300–400ms；这里给 700ms，超过就直接落位。
+    setTimeout(function () {
+      if (finished) return;
+      if (_pg) { _pg.p = to; applyPageSwipe(); }
+      finish();
+    }, 700);
+  }
+
+  /** 撤掉临时层、复位变换。committed=true 表示马上要换页（先把内容换掉再撤层，避免闪）。 */
+  function cleanupPageSwipe() {
+    var g = _pg;
+    _pg = null;
+    if (_pgRaf) { cancelAnimationFrame(_pgRaf); _pgRaf = null; }
+    if (!g) return;
+    if (g.scr) { g.scr.style.transition = 'none'; g.scr.style.transform = ''; }
+    if (g.under && g.under.parentNode) g.under.parentNode.removeChild(g.under);
+  }
+
+  function cancelPageSwipe() {
+    if (_pgRaf) { cancelAnimationFrame(_pgRaf); _pgRaf = null; }
+    cleanupPageSwipe();
+  }
+
+  function onPageSwipeEnd() {
+    var g = _pg;
+    if (!g) return;
+    if (!g.locked) { cleanupPageSwipe(); return; }
+
+    var dx = g.x - g.x0;
+    // ⚠️ 距离是唯一判据：拖到一半松手必然弹回。
+    //    速度只用来辨别方向，不让"快速轻扫但没拖够"也完成返回。
+    var pass = dx > g.W * 0.55;
+
+    settlePageSwipe(pass ? 1 : 0, function () {
+      if (!pass) { cleanupPageSwipe(); return; }
+      // 提交：先把 .scr 换成上一级（此时它还停在屏幕外），再复位变换、撤掉临时层。
+      // 这个顺序能避免"先闪一下子页面"。
+      var scrEl = _pg ? _pg.scr : null;
+      S.view = null;
+      render();
+      if (scrEl) { scrEl.style.transition = 'none'; scrEl.style.transform = ''; }
+      cleanupPageSwipe();
+    });
+  }
+
+  function onPageSwipeEndCancel() { cancelPageSwipe(); }
 
   // ---- 菜库卡片左滑：露出「删除」按钮 ----
   // 拉过临界值就停在"打开"位置（露出删除按钮），而不是直接删掉 ——
@@ -2550,6 +2793,64 @@
         var ci = document.querySelector('.sheet-host [data-ing-input]');
         if (ci) ci.value = '';
         refreshIngPicker(); break;
+      }
+      case 'new-ingredient': {
+        // 库里没有这个食材 → 直接用当前搜索词建一个（再让用户挑分类）
+        var pick = S._pick;
+        if (!pick) break;
+        var newName = (pick.q || '').trim();
+        if (!newName) break;
+        S._newIngName = newName;
+        S._newIngCat = 'protein';       // 默认肉蛋（用户加的多半是这类），可改
+        S._newIngBack = 'picker';       // 存完回到食材选择器
+        S.view = { name: 'newIngredient', params: {} };
+        render(); break;
+      }
+      case 'new-ingredient-inline': {
+        // 从"食材"页搜不到时点的：存完回到食材页，并把搜索词换成新食材
+        var nmInline = (S._pantryQ || '').trim();
+        if (!nmInline) break;
+        S._newIngName = nmInline;
+        S._newIngCat = 'protein';
+        S._newIngBack = 'pantry';
+        S.view = { name: 'newIngredient', params: {} };
+        render(); break;
+      }
+      case 'new-ing-cat': {
+        S._newIngCat = data.id; render(); break;
+      }
+      case 'new-ing-save': {
+        var nm = (S._newIngName || '').trim();
+        var ing = addCustomIngredient(nm, S._newIngCat || 'other');
+        if (!ing) break;                 // 校验没过（重名/空）—— addCustomIngredient 里已提示
+        if (S._newIngBack === 'pantry') {
+          // 回到食材页：搜索词换成刚建的名字，直接看到"能做这些菜"
+          S._newIngBack = null;
+          S._pantryQ = ing.name;
+          S.view = null; S.tab = 'pantry';
+          render();
+          var pi = document.querySelector('.scr [data-pantry-input]');
+          if (pi) pi.value = ing.name;
+          toast('已新建「' + ing.name + '」，可以加进菜里了');
+          break;
+        }
+        // 回到选择器：清掉搜索词，让新食材出现在列表里
+        if (S._pick) { S._pick.q = ''; S._pick.cat = 'all'; }
+        var ni = document.querySelector('.sheet-host [data-ing-input]');
+        if (ni) ni.value = '';
+        S.view = { name: 'ingPicker', params: {} };
+        render();
+        toast('已新建「' + ing.name + '」');
+        break;
+      }
+      case 'new-ing-cancel': {
+        if (S._newIngBack === 'pantry') {
+          S._newIngBack = null;
+          S.view = null; S.tab = 'pantry';
+          render(); break;
+        }
+        S.view = { name: 'ingPicker', params: {} };
+        render(); break;
       }
 
       /* ---- 食材页（Tab）自己的搜索框 ---- */
@@ -3313,11 +3614,11 @@
       fetch('data/ingredients.json').then(function (r) { return r.json(); }),
       fetch('data/recipes.json').then(function (r) { return r.json(); })
     ]).then(function (res) {
-      S.ingredients = res[0].ingredients;
+      S.builtinIngredients = res[0].ingredients;   // 内置 217 种，保持原始引用
       S.recipes = res[1].recipes;
-      S.ingIndex = C.buildIngredientIndex(S.ingredients);
       S.recipes.forEach(function (r) { S.recipeById[r.id] = r; });
-      load();
+      load();                                      // 先读本地状态（含自建食材）
+      rebuildIngredients();                        // 再把自建食材并进来、重建索引
       cleanupTonight();
       render();
       document.addEventListener('click', onClick);

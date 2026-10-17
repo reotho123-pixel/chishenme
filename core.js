@@ -83,6 +83,9 @@
       // 被用户删掉的内置菜 id：内置菜在 recipes.json 里删不掉，
       // 所以用这张名单把它们从「菜库」里隐藏掉（左滑删除要用）。
       removedRecipes: [],
+      // 用户自己加的食材（内置 217 种里没有的，比如兔肉）。
+      // 启动时和内置库合并，见 app.js 的 mergeIngredients()。
+      customIngredients: [],
       tonight: [],
       doneLog: [],
       session: null,
